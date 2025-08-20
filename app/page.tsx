@@ -1,5 +1,9 @@
 "use client";
+
 import { useState } from "react";
+import MenuPrincipal from "@/components/MenuPrincipal";
+
+// Types pour les données API
 
 type Combinaison = {
   bloc: number;
@@ -10,8 +14,8 @@ type Combinaison = {
 type ApiSuccess = {
   ok: true;
   data: Combinaison[];
-  echo: { loterie: string; blocs: number };
-  source: string;
+  echo?: { loterie: string; blocs: number };
+  source?: string;
 };
 
 type ApiError = {
@@ -26,8 +30,9 @@ export default function Home() {
   const [resultat, setResultat] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [selection, setSelection] = useState<{ loterieId: string; action: string } | null>(null);
 
-  const generer = async () => {
+  const appelerAPI = async (action: string, loterieId: string) => {
     const base = process.env.NEXT_PUBLIC_API_URL;
     if (!base) {
       setErr("NEXT_PUBLIC_API_URL est vide ou non définie.");
@@ -39,37 +44,41 @@ export default function Home() {
     setErr(null);
     setResultat(null);
 
-    try {
-      const res = await fetch(`${base}/api/generer`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loterie: "2", blocs: 1, mode: "Gb" }),
-      });
-
-      // Même si status != 200, on tente de lire le JSON (ton backend renvoie un JSON d’erreur)
-      const data: ApiResponse = await res.json();
-      setResultat(data);
-      if (!res.ok && "error" in data) {
-        setErr(`API error: ${String(data.error)}`);
+    if (action === "gb") {
+      try {
+        const res = await fetch(`${base}/api/generer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ loterie: loterieId, blocs: 1, mode: "Gb" }),
+        });
+        const data: ApiResponse = await res.json();
+        setResultat(data);
+        if (!res.ok && "error" in data) {
+          setErr(`API error: ${String(data.error)}`);
+        }
+      } catch (e: unknown) {
+        setErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
       }
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
+    } else {
+      setErr("Cette action n'est pas encore implémentée côté frontend.");
       setLoading(false);
     }
   };
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4">
-      <h1 className="text-2xl font-bold mb-4">🎲 Générateur de Combinaisons</h1>
+      <h1 className="text-3xl font-bold mb-6">🎲 AI Générateur de Combinaisons</h1>
 
-      <button
-        onClick={generer}
-        className="bg-blue-600 text-white px-4 py-2 rounded mb-6 hover:bg-blue-700 transition"
-        disabled={loading}
-      >
-        {loading ? "Chargement..." : "Générer une combinaison"}
-      </button>
+      <MenuPrincipal
+        onAction={(action, loterieId) => {
+          setSelection({ action, loterieId });
+          appelerAPI(action, loterieId);
+        }}
+      />
+
+      {loading && <p className="mt-4">⏳ Chargement en cours...</p>}
 
       {err && (
         <div className="mb-4 text-red-600">
@@ -78,7 +87,7 @@ export default function Home() {
       )}
 
       {resultat && (
-        <pre className="bg-gray-100 p-4 rounded w-full max-w-xl text-sm overflow-auto">
+        <pre className="bg-gray-100 p-4 rounded w-full max-w-xl text-sm overflow-auto mt-4">
           {JSON.stringify(resultat, null, 2)}
         </pre>
       )}
