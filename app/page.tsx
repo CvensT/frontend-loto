@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import MenuPrincipal from "@/components/MenuPrincipal";
-
+import MenuPrincipal from "../components/MenuPrincipal";
 // Types pour les données API
 
 type Combinaison = {
@@ -72,12 +71,11 @@ export default function Home() {
       <h1 className="text-3xl font-bold mb-6">🎲 AI Générateur de Combinaisons</h1>
 
       <MenuPrincipal
-        onAction={(action, loterieId) => {
-          setSelection({ action, loterieId });
-          appelerAPI(action, loterieId);
-        }}
-      />
-
+  onChoix={(loterieId) => {
+    setSelection({ action: "Gb", loterieId });
+    appelerAPI("Gb", loterieId);
+  }}
+/>
       {loading && <p className="mt-4">⏳ Chargement en cours...</p>}
 
       {err && (
