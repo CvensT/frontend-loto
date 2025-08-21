@@ -72,7 +72,7 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
 
       {resultat && "ok" in resultat && resultat.ok && (
         <div className="mt-5 space-y-4">
-          {resultat.data.map((item, idx) => (
+          {resultat.data.map((item: Combinaison, idx: number) => (
             <div key={idx} className="bg-gray-100 rounded px-3 py-2">
               <strong>Bloc {item.bloc}</strong> :{" "}
               {item.combinaison.map((n) => n.toString().padStart(2, "0")).join(" ")}
