@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import MenuPrincipal from "../components/MenuPrincipal";
-// Types pour les données API
+import GenerateurGb from "../components/GenerateurGb";
 
+// Types pour les données API
 type Combinaison = {
   bloc: number;
   combinaison: number[];
@@ -43,7 +44,7 @@ export default function Home() {
     setErr(null);
     setResultat(null);
 
-    if (action === "gb") {
+    if (action === "Gb") {
       try {
         const res = await fetch(`${base}/api/generer`, {
           method: "POST",
@@ -71,11 +72,12 @@ export default function Home() {
       <h1 className="text-3xl font-bold mb-6">🎲 AI Générateur de Combinaisons</h1>
 
       <MenuPrincipal
-  onChoix={(loterieId) => {
-    setSelection({ action: "Gb", loterieId });
-    appelerAPI("Gb", loterieId);
-  }}
-/>
+        onChoix={(loterieId) => {
+          setSelection({ action: "Gb", loterieId });
+          appelerAPI("Gb", loterieId);
+        }}
+      />
+
       {loading && <p className="mt-4">⏳ Chargement en cours...</p>}
 
       {err && (
@@ -84,12 +86,9 @@ export default function Home() {
         </div>
       )}
 
-      {resultat && (
-        <pre className="bg-gray-100 p-4 rounded w-full max-w-xl text-sm overflow-auto mt-4">
-          {JSON.stringify(resultat, null, 2)}
-        </pre>
+      {resultat && resultat.ok && selection?.action === "Gb" && (
+        <GenerateurGb loterieId={selection.loterieId} />
       )}
     </main>
   );
 }
-
