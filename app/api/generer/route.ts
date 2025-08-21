@@ -32,7 +32,11 @@ export async function POST(req: Request) {
         headers: { "Content-Type": r.headers.get("Content-Type") || "text/plain" },
       });
     }
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Erreur inconnue" }, { status: 500 });
+  } catch (e: unknown) {
+    if (e instanceof Error) {
+      return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: false, error: "Erreur inconnue" }, { status: 500 });
   }
 }
+
