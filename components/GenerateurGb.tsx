@@ -28,61 +28,62 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
   const generer = async () => {
     const base = process.env.NEXT_PUBLIC_API_URL;
     if (!base) {
-      setErr("❌ L’URL de l’API n’est pas définie.");
+      setErr("❌ L'URL de l'API n’est pas définie.");
       return;
     }
 
     setLoading(true);
     setErr(null);
-    setResultat(null);
-
     try {
-      const res = await fetch(`${base}/api/generer`, {
+      const response = await fetch(`${base}/api/generer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loterie: loterieId, blocs: 1, mode: "Gb" }),
+        body: JSON.stringify({ loterie: loterieId, mode: "Gb", blocs: 1 }),
       });
 
-      const data: ApiResponse = await res.json();
+      const data: ApiResponse = await response.json();
       setResultat(data);
-
-      if (!res.ok && "error" in data) {
-        setErr(data.error);
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        console.error(e.message);
+      } else {
+        console.error("Erreur inconnue", e);
       }
-    } catch (e: any) {
-      setErr(e.message || "Erreur inconnue");
+      setErr("Erreur réseau ou serveur.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-2xl w-full">
-      <h2 className="text-xl font-semibold mb-4">Génération (mode Gb)</h2>
-
+    <div className="p-4 rounded border mt-6 shadow">
       <button
-        onClick={generer}
+        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded"
+        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+          e.preventDefault();
+          generer();
+        }}
         disabled={loading}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
       >
-        {loading ? "Chargement..." : "Générer"}
+        {loading ? "Chargement..." : "Générer un bloc Gb"}
       </button>
 
-      {err && <div className="text-red-600 mt-4">❌ {err}</div>}
+      {err && <p className="text-red-600 mt-3">{err}</p>}
 
-      {resultat?.ok && (
-        <div className="mt-6 space-y-2">
-          {resultat.data.map((item, index) => (
-            <div
-              key={index}
-              className="bg-gray-100 rounded p-2 font-mono text-sm"
-            >
-              Bloc {item.bloc} :{" "}
-              {item.combinaison.map((n) => n.toString().padStart(2, "0")).join(" ")}{" "}
-              {item.etoile && "★"}
+      {resultat && "ok" in resultat && resultat.ok && (
+        <div className="mt-5 space-y-4">
+          {resultat.data.map((item, idx) => (
+            <div key={idx} className="bg-gray-100 rounded px-3 py-2">
+              <strong>Bloc {item.bloc}</strong> :{" "}
+              {item.combinaison.map((n) => n.toString().padStart(2, "0")).join(" ")}
+              {item.etoile && <span className="text-yellow-600 font-bold"> ★</span>}
             </div>
           ))}
         </div>
+      )}
+
+      {resultat && "ok" in resultat && !resultat.ok && (
+        <p className="text-red-500 mt-4">❌ Erreur : {resultat.error}</p>
       )}
     </div>
   );
