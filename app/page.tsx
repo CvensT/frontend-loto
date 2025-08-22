@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import MenuPrincipal from "../components/MenuPrincipal";
-import GenerateurGb from "./components/GenerateurGb";
+import GenerateurGb from "../components/GenerateurGb";
 import VerificationBlocs from "../components/VerificationBlocs";
-import VerificationHistorique from "../components/VerificationHistorique";
-
 type Combinaison = {
   bloc: number;
   combinaison: number[];
