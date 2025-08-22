@@ -16,9 +16,7 @@ export default function MenuPrincipal({
     <div className="mb-6 flex flex-col items-center">
       <h1 className="mb-4 text-3xl font-bold">🎯 AI Générateur de Combinaisons</h1>
 
-      <label htmlFor="loterie" className="mb-1 font-medium">
-        Loterie :
-      </label>
+      <label htmlFor="loterie" className="mb-1 font-medium">Loterie :</label>
       <select
         id="loterie"
         value={loterie}
@@ -30,21 +28,16 @@ export default function MenuPrincipal({
         <option value="1">Grande Vie</option>
       </select>
 
-      <label htmlFor="mode" className="mb-1 font-medium">
-        Mode :
-      </label>
+      <label htmlFor="mode" className="mb-1 font-medium">Mode :</label>
       <select
         id="mode"
         value={mode}
         onChange={(e) => setMode(e.target.value)}
         className="mb-4 rounded border border-gray-300 p-2"
       >
-        <option value="Gn">Génération normale</option>
         <option value="Gb">Génération par blocs</option>
         <option value="V">Vérification combinaison</option>
         <option value="Vb">Vérification blocs</option>
-        <option value="A">Analyse</option>
-        <option value="H">Historique</option>
       </select>
 
       <button onClick={handleSubmit} className="rounded bg-blue-500 px-4 py-2 text-white">
