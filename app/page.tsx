@@ -6,7 +6,6 @@ import GenerateurGb from "./components/GenerateurGb";
 import VerificationCombinaison from "./components/VerificationCombinaison";
 import VerificationBlocs from "./components/VerificationBlocs";
 
-// Types pour les données API
 type Combinaison = {
   bloc: number;
   combinaison: number[];
@@ -15,7 +14,7 @@ type Combinaison = {
 
 type ApiSuccess = {
   ok: true;
-  data: Combinaison[];
+  data: Combinaison[] | { combinaison: number[] };
   echo?: { loterie: string; blocs: number };
   source?: string;
 };
@@ -33,7 +32,7 @@ export default function Page() {
   const [err, setErr] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ loterieId: string; action: string } | null>(null);
 
-  const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+\$/, "") || "";
+  const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "";
 
   const appelerAPI = async (action: string, loterieId: string) => {
     setLoading(true);
