@@ -1,86 +1,82 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+type RésultatVb = {
+  doublons: string[];
+  non_conformes: {
+    bloc: number;
+    combinaison: number[];
+    raison: string;
+  }[];
+};
 
 export default function VerificationBlocs({ loterieId }: { loterieId: string }) {
-  const [blocInput, setBlocInput] = useState("");
-  const [resultat, setResultat] = useState<any>(null);
-  const [erreur, setErreur] = useState<string | null>(null);
+  const [résultat, setRésultat] = useState<RésultatVb | null>(null);
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  const verifierBloc = async () => {
-    setErreur(null);
-    setResultat(null);
-    setLoading(true);
+  useEffect(() => {
+    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "";
+    const fetchData = async () => {
+      setLoading(true);
+      setErr(null);
+      try {
+        const res = await fetch(`${base}/api/verifier-bloc`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ loterie: loterieId }),
+        });
 
-    try {
-      const lignes = blocInput.trim().split("\n");
-      const combinaisons = lignes
-        .map((line) =>
-          line
-            .trim()
-            .split(/[^0-9]+/)
-            .map((v) => parseInt(v, 10))
-            .filter((n) => !isNaN(n))
-        )
-        .filter((c) => c.length > 0);
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/verifier-bloc`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loterie: loterieId, combinations: combinaisons }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setErreur(data.error || "Erreur API");
-      } else {
-        setResultat(data);
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          setErr(data?.error || "Erreur lors de la vérification des blocs.");
+        } else {
+          setRésultat(data);
+        }
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      setErreur(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchData();
+  }, [loterieId]);
+
+  if (loading) return <p className="text-gray-600">🔍 Vérification des blocs en cours...</p>;
+  if (err) return <p className="text-red-600">❌ {err}</p>;
 
   return (
     <div className="mt-4">
-      <h2 className="mb-2 text-xl font-semibold">📦 Vérification d’un bloc (local)</h2>
-      <textarea
-        rows={8}
-        value={blocInput}
-        onChange={(e) => setBlocInput(e.target.value)}
-        placeholder={`Entrez une combinaison par ligne\nEx:\n4 15 26 33 38 45 47\n1 3 7 12 22 30 50`}
-        className="w-full rounded border p-2 font-mono"
-      />
-      <button
-        onClick={verifierBloc}
-        className="mt-2 rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-50"
-        disabled={loading || !blocInput.trim()}
-      >
-        Vérifier le bloc
-      </button>
+      <h2 className="font-semibold text-blue-700 mb-2">📋 Résultat de la vérification des blocs</h2>
 
-      {loading && <div className="mt-2 text-gray-600">⏳ Vérification...</div>}
-      {erreur && <div className="mt-2 text-red-600">❌ {erreur}</div>}
-
-      {resultat && (
-        <div className="mt-4 rounded border p-3 text-sm bg-gray-50 text-gray-800">
-          <p className="font-semibold text-green-700">{resultat.message}</p>
-
-          {resultat.doublons?.length > 0 && (
-            <div className="mt-2 text-red-600">
-              🔁 Doublons détectés : {resultat.doublons.join(", ")}
-            </div>
-          )}
-
-          {resultat.invalides?.length > 0 && (
-            <div className="mt-2 text-orange-600">
-              ❌ Combinaisons invalides : {resultat.invalides.join(", ")} (ne respectent pas les critères)
-            </div>
-          )}
+      {résultat?.doublons?.length ? (
+        <div className="mb-4">
+          <h3 className="text-red-700 font-medium">🔁 Doublons détectés :</h3>
+          <ul className="list-disc ml-6 text-sm">
+            {résultat.doublons.map((d, idx) => (
+              <li key={idx}>{d}</li>
+            ))}
+          </ul>
         </div>
+      ) : (
+        <p className="text-green-700">✅ Aucun doublon trouvé.</p>
+      )}
+
+      {résultat?.non_conformes?.length ? (
+        <div className="mt-4">
+          <h3 className="text-orange-700 font-medium">🚫 Combinaisons non conformes :</h3>
+          <ul className="list-disc ml-6 text-sm">
+            {résultat.non_conformes.map((nc, idx) => (
+              <li key={idx}>
+                Bloc {nc.bloc} : [{nc.combinaison.join(", ")}] – {nc.raison}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="text-green-700 mt-2">✅ Toutes les combinaisons respectent les critères.</p>
       )}
     </div>
   );
