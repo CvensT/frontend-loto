@@ -3,8 +3,8 @@
 import { useState } from "react";
 import MenuPrincipal from "./components/MenuPrincipal";
 import GenerateurGb from "./components/GenerateurGb";
-import VerificationCombinaison from "./components/VerificationCombinaison";
 import VerificationBlocs from "./components/VerificationBlocs";
+import VerificationHistorique from "./components/VerificationHistorique";
 
 type Combinaison = {
   bloc: number;
@@ -31,61 +31,56 @@ export default function Home() {
   const [resultat, setResultat] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [selection, setSelection] = useState<{
-    loterieId: string;
-    action: string;
-  } | null>(null);
+  const [selection, setSelection] = useState<{ loterieId: string; action: string } | null>(null);
 
   const appelerAPI = async (action: string, loterieId: string) => {
-    try {
-      setLoading(true);
-      setResultat(null);
-      setErr(null);
+    setLoading(true);
+    setErr(null);
 
+    try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/generer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: action, loterie: loterieId, blocs: 1 }),
+        body: JSON.stringify({ loterie: loterieId, mode: action, blocs: 1 }),
       });
 
-      const json: ApiResponse = await res.json();
+      const json = await res.json();
       setResultat(json);
-      setSelection({ action, loterieId });
-
-      if (!json.ok) {
-        setErr(json.error || "Erreur inconnue");
-      }
     } catch (e: any) {
-      setErr(e.message || "Erreur réseau");
+      setErr("Erreur API : " + e.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="p-8 max-w-3xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">🎯 AI Générateur de Combinaisons</h1>
+    <main className="p-4">
+      <h1 className="text-2xl font-bold mb-4">AI Générateur de Combinaisons</h1>
 
-      <MenuPrincipal onSubmit={appelerAPI} />
+      <MenuPrincipal
+        onValider={(loterieId, action) => {
+          setSelection({ loterieId, action });
+          appelerAPI(action, loterieId);
+        }}
+      />
 
-      {loading && <p className="text-blue-600 mt-4">Chargement...</p>}
+      {loading && <p>Chargement...</p>}
+      {err && <p className="text-red-500">{err}</p>}
 
-      {err && (
-        <p className="text-red-600 mt-4 font-semibold">
-          ❌ Erreur : {err}
-        </p>
+      {resultat && resultat.ok && selection?.action === "Gb" && (
+        <GenerateurGb data={resultat.data} />
       )}
 
-      {resultat?.ok && selection?.action === "Gb" && (
-        <GenerateurGb data={resultat.data} source={resultat.source} />
+      {resultat && resultat.ok && selection?.action === "Vb" && (
+        <VerificationBlocs data={resultat.data} />
       )}
 
-      {selection?.action === "V" && (
-        <VerificationCombinaison loterieId={selection.loterieId} />
+      {resultat && resultat.ok && selection?.action === "V" && (
+        <VerificationHistorique data={resultat.data} />
       )}
 
-      {selection?.action === "Vb" && (
-        <VerificationBlocs loterieId={selection.loterieId} />
+      {resultat && !resultat.ok && (
+        <p className="text-red-600 mt-4">Erreur : {resultat.error}</p>
       )}
     </main>
   );
