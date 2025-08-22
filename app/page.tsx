@@ -3,7 +3,7 @@
 import { useState } from "react";
 import MenuPrincipal from "../components/MenuPrincipal";
 import GenerateurGb from "../components/GenerateurGb";
-import VerificationHistorique from "../components/VerificationHistorique";
+import VerificationCombinaison from "../components/VerificationCombinaison";
 import VerificationBlocs from "../components/VerificationBlocs";
 
 type Combinaison = {
@@ -14,7 +14,7 @@ type Combinaison = {
 
 type ApiSuccess = {
   ok: true;
-  data: Combinaison[];
+  data: Combinaison[] | { combinaison: number[] };
   echo?: { loterie: string; blocs: number };
   source?: string;
 };
@@ -22,58 +22,69 @@ type ApiSuccess = {
 type ApiError = {
   ok: false;
   error: string;
-  [key: string]: unknown;
 };
 
 type ApiResponse = ApiSuccess | ApiError;
 
-export default function Home() {
+export default function Page() {
   const [resultat, setResultat] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ loterieId: string; action: string } | null>(null);
 
+  const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "";
+
   const appelerAPI = async (action: string, loterieId: string) => {
     setLoading(true);
     setErr(null);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loterie: loterieId, mode: action, blocs: 1 }),
-      });
+    setResultat(null);
 
-      const data: ApiResponse = await res.json();
-      setResultat(data);
-    } catch (error: any) {
-      setErr(error.message || "Erreur inconnue");
+    try {
+      if (action === "Gb") {
+        const res = await fetch(`${base}/api/generer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ loterie: loterieId, blocs: 1, mode: "Gb" }),
+        });
+
+        const data: ApiResponse = await res.json();
+        if (!res.ok || !data.ok) {
+          setErr(data.ok === false ? data.error : "Erreur API");
+        } else {
+          setResultat(data);
+        }
+      } else {
+        // Pour les autres actions, rien à faire ici (formulaires interagissent seuls)
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-4">
+    <div className="mx-auto max-w-3xl p-4">
       <MenuPrincipal
-        onSelect={(choix) => {
-          setSelection(choix);
-          appelerAPI(choix.action, choix.loterieId);
+        onChoix={(loterieId, action) => {
+          setSelection({ loterieId, action });
+          appelerAPI(action, loterieId);
         }}
       />
 
-      {loading && <p>Chargement...</p>}
-      {err && <p className="text-red-500">{err}</p>}
+      {loading && <div className="mt-4 text-gray-600">⏳ Chargement...</div>}
+      {err && <div className="mt-4 text-red-600">❌ {err}</div>}
 
-      {resultat?.ok && selection?.action === "Gb" && (
-        <GenerateurGb data={resultat.data} />
+      {selection?.action === "Gb" && resultat?.ok && (
+        <GenerateurGb loterieId={selection.loterieId} />
       )}
 
-      {resultat?.ok && selection?.action === "Vb" && (
-        <VerificationBlocs data={resultat.data} />
+      {selection?.action === "V" && (
+        <VerificationCombinaison loterieId={selection.loterieId} />
       )}
 
-      {resultat?.ok && selection?.action === "H" && (
-        <VerificationHistorique data={resultat.data} />
+      {selection?.action === "Vb" && (
+        <VerificationBlocs loterieId={selection.loterieId} />
       )}
     </div>
   );
