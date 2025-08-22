@@ -14,7 +14,7 @@ type Combinaison = {
 
 type ApiSuccess = {
   ok: true;
-  data: Combinaison[];
+  data: Combinaison[] | { combinaison: number[] };
   echo?: { loterie: string; blocs: number };
   source?: string;
 };
