@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import MenuPrincipal from "./components/MenuPrincipal";
+import MenuPrincipal from "../components/MenuPrincipal";
 import GenerateurGb from "./components/GenerateurGb";
-import VerificationBlocs from "./components/VerificationBlocs";
-import VerificationHistorique from "./components/VerificationHistorique";
+import VerificationBlocs from "../components/VerificationBlocs";
+import VerificationHistorique from "../components/VerificationHistorique";
 
 type Combinaison = {
   bloc: number;
