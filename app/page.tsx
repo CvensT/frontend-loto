@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import MenuPrincipal from "../components/MenuPrincipal";
-import GenerateurGb from "../components/GenerateurGb";
-import VerificationBlocs from "../components/VerificationBlocs";
+import MenuPrincipal from "./components/MenuPrincipal";
+import GenerateurGb from "./components/GenerateurGb";
+import VerificationBlocs from "./components/VerificationBlocs";
 type Combinaison = {
   bloc: number;
   combinaison: number[];
