@@ -1,18 +1,31 @@
-// app/page.tsx
 "use client";
 
 import { useState } from "react";
-import MenuPrincipal from "../components/MenuPrincipal";
-import GenerateurGb from "../components/GenerateurGb";
+import MenuPrincipal from "./components/MenuPrincipal";
+import GenerateurGb from "./components/GenerateurGb";
+import VerificationCombinaison from "./components/VerificationCombinaison";
+import VerificationBlocs from "./components/VerificationBlocs";
+import VerificationHistorique from "./components/VerificationHistorique";
 
-type Combinaison = { bloc: number; combinaison: number[]; etoile: boolean };
-type ApiSuccessGnGb = { ok: true; data: Combinaison[] | { combinaison: number[] }; echo?: Record<string, unknown>; source?: string; };
-type ApiFailure = { ok: false; error: string; [key: string]: unknown };
-type ApiResponse = ApiSuccessGnGb | ApiFailure;
+type Combinaison = {
+  bloc: number;
+  combinaison: number[];
+  etoile: boolean;
+};
 
-function Placeholder({ children }: { children: React.ReactNode }) {
-  return <div className="mt-4 rounded border border-dashed p-4 text-gray-600">{children}</div>;
-}
+type ApiSuccess = {
+  ok: true;
+  data: Combinaison[] | { combinaison: number[] };
+  echo?: { loterie: string; blocs: number };
+  source?: string;
+};
+
+type ApiError = {
+  ok: false;
+  error: string;
+};
+
+type ApiResponse = ApiSuccess | ApiError;
 
 export default function Page() {
   const [resultat, setResultat] = useState<ApiResponse | null>(null);
@@ -20,9 +33,7 @@ export default function Page() {
   const [err, setErr] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ loterieId: string; action: string } | null>(null);
 
-  const base =
-    process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
-    (typeof window !== "undefined" ? window.location.origin : "");
+  const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "";
 
   const appelerAPI = async (action: string, loterieId: string) => {
     setLoading(true);
@@ -36,25 +47,17 @@ export default function Page() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ loterie: loterieId, blocs: 1, mode: action }),
         });
-        const data: ApiResponse = await res.json().catch(() => ({ ok: false, error: "Réponse invalide JSON." } as ApiFailure));
-        if (!res.ok || (data && "ok" in data && data.ok === false)) {
-          setErr((data as ApiFailure)?.error ?? `Erreur HTTP ${res.status}`);
-          setResultat(data);
+
+        const data: ApiResponse = await res.json();
+        if (!res.ok || !data.ok) {
+          setErr(data.ok === false ? data.error : "Erreur API");
         } else {
           setResultat(data);
         }
-      } else if (action === "V") {
-        setErr("Vérification (V) non encore implémentée côté frontend.");
-      } else if (action === "Vb") {
-        setErr("Vérification de blocs (Vb) non encore implémentée côté frontend.");
-      } else if (action === "A") {
-        setErr("Analyse (A) non encore implémentée côté frontend.");
-      } else if (action === "H") {
-        setErr("Historique (H) non encore implémenté côté frontend.");
       } else {
-        setErr(`Action inconnue: ${action}`);
+        setErr("Ce mode nécessite une interaction utilisateur.");
       }
-    } catch (e: unknown) {
+    } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
@@ -66,34 +69,36 @@ export default function Page() {
       <MenuPrincipal
         onChoix={(loterieId, action) => {
           setSelection({ loterieId, action });
-          void appelerAPI(action, loterieId);
+          appelerAPI(action, loterieId);
         }}
       />
 
-      {loading && <div className="mt-2 animate-pulse text-gray-700">⏳ Chargement…</div>}
-      {err && <div className="mt-2 rounded bg-red-50 p-3 text-sm text-red-700">⚠️ {err}</div>}
+      {loading && <div className="mt-4 text-gray-600">⏳ Chargement...</div>}
+      {err && <div className="mt-4 text-red-600">❌ {err}</div>}
 
-      {resultat && "ok" in resultat && resultat.ok && selection?.action === "Gb" && (
+      {selection?.action === "Gb" && resultat?.ok && (
         <GenerateurGb loterieId={selection.loterieId} />
       )}
 
-      {resultat && "ok" in resultat && resultat.ok && selection?.action === "Gn" && (
-        <Placeholder>
-          <div className="text-green-700 font-semibold">Combinaisons générées (mode Gn)</div>
-          <pre className="mt-2 overflow-auto text-sm">{JSON.stringify(resultat.data, null, 2)}</pre>
-        </Placeholder>
+      {selection?.action === "Gn" && resultat?.ok && (
+        <div className="mt-4">
+          <h2 className="font-semibold text-green-700">Génération normale (Gn)</h2>
+          <pre className="mt-2 bg-gray-100 p-2 rounded text-sm overflow-auto">
+            {JSON.stringify(resultat.data, null, 2)}
+          </pre>
+        </div>
       )}
 
-      {selection?.action === "V" && <Placeholder>Résultat de la vérification (à brancher).</Placeholder>}
-      {selection?.action === "Vb" && <Placeholder>Résultat de la vérification de blocs (à brancher).</Placeholder>}
-      {selection?.action === "A" && <Placeholder>Analyse de la combinaison (à brancher).</Placeholder>}
-      {selection?.action === "H" && <Placeholder>Historique des combinaisons (à brancher).</Placeholder>}
+      {selection?.action === "V" && (
+        <VerificationCombinaison loterieId={selection.loterieId} />
+      )}
 
-      {resultat && (
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-gray-600">Voir la réponse brute</summary>
-          <pre className="mt-2 overflow-auto text-xs">{JSON.stringify(resultat, null, 2)}</pre>
-        </details>
+      {selection?.action === "Vb" && (
+        <VerificationBlocs loterieId={selection.loterieId} />
+      )}
+
+      {selection?.action === "H" && (
+        <VerificationHistorique loterieId={selection.loterieId} />
       )}
     </div>
   );
