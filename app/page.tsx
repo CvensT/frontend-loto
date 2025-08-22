@@ -1,94 +1,100 @@
+// app/page.tsx
 "use client";
 
 import { useState } from "react";
 import MenuPrincipal from "../components/MenuPrincipal";
 import GenerateurGb from "../components/GenerateurGb";
 
-// Types pour les données API
-type Combinaison = {
-  bloc: number;
-  combinaison: number[];
-  etoile: boolean;
-};
+type Combinaison = { bloc: number; combinaison: number[]; etoile: boolean };
+type ApiSuccessGnGb = { ok: true; data: Combinaison[] | { combinaison: number[] }; echo?: Record<string, unknown>; source?: string; };
+type ApiFailure = { ok: false; error: string; [key: string]: unknown };
+type ApiResponse = ApiSuccessGnGb | ApiFailure;
 
-type ApiSuccess = {
-  ok: true;
-  data: Combinaison[];
-  echo?: { loterie: string; blocs: number };
-  source?: string;
-};
+function Placeholder({ children }: { children: React.ReactNode }) {
+  return <div className="mt-4 rounded border border-dashed p-4 text-gray-600">{children}</div>;
+}
 
-type ApiError = {
-  ok: false;
-  error: string;
-  [key: string]: unknown;
-};
-
-type ApiResponse = ApiSuccess | ApiError;
-
-export default function Home() {
+export default function Page() {
   const [resultat, setResultat] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ loterieId: string; action: string } | null>(null);
 
-  const appelerAPI = async (action: string, loterieId: string) => {
-    const base = process.env.NEXT_PUBLIC_API_URL;
-    if (!base) {
-      setErr("NEXT_PUBLIC_API_URL est vide ou non définie.");
-      setResultat(null);
-      return;
-    }
+  const base =
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
+    (typeof window !== "undefined" ? window.location.origin : "");
 
+  const appelerAPI = async (action: string, loterieId: string) => {
     setLoading(true);
     setErr(null);
     setResultat(null);
 
-    if (action === "Gb") {
-      try {
+    try {
+      if (action === "Gn" || action === "Gb") {
         const res = await fetch(`${base}/api/generer`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ loterie: loterieId, blocs: 1, mode: "Gb" }),
+          body: JSON.stringify({ loterie: loterieId, blocs: 1, mode: action }),
         });
-        const data: ApiResponse = await res.json();
-        setResultat(data);
-        if (!res.ok && "error" in data) {
-          setErr(`API error: ${String(data.error)}`);
+        const data: ApiResponse = await res.json().catch(() => ({ ok: false, error: "Réponse invalide JSON." } as ApiFailure));
+        if (!res.ok || (data && "ok" in data && data.ok === false)) {
+          setErr((data as ApiFailure)?.error ?? `Erreur HTTP ${res.status}`);
+          setResultat(data);
+        } else {
+          setResultat(data);
         }
-      } catch (e: unknown) {
-        setErr(e instanceof Error ? e.message : String(e));
-      } finally {
-        setLoading(false);
+      } else if (action === "V") {
+        setErr("Vérification (V) non encore implémentée côté frontend.");
+      } else if (action === "Vb") {
+        setErr("Vérification de blocs (Vb) non encore implémentée côté frontend.");
+      } else if (action === "A") {
+        setErr("Analyse (A) non encore implémentée côté frontend.");
+      } else if (action === "H") {
+        setErr("Historique (H) non encore implémenté côté frontend.");
+      } else {
+        setErr(`Action inconnue: ${action}`);
       }
-    } else {
-      setErr("Cette action n'est pas encore implémentée côté frontend.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-4">
-      <h1 className="text-3xl font-bold mb-6">🎲 AI Générateur de Combinaisons</h1>
-
+    <div className="mx-auto max-w-3xl p-4">
       <MenuPrincipal
-        onChoix={(loterieId) => {
-          setSelection({ action: "Gb", loterieId });
-          appelerAPI("Gb", loterieId);
+        onChoix={(loterieId, action) => {
+          setSelection({ loterieId, action });
+          void appelerAPI(action, loterieId);
         }}
       />
 
-      {loading && <p className="mt-4">⏳ Chargement en cours...</p>}
+      {loading && <div className="mt-2 animate-pulse text-gray-700">⏳ Chargement…</div>}
+      {err && <div className="mt-2 rounded bg-red-50 p-3 text-sm text-red-700">⚠️ {err}</div>}
 
-      {err && (
-        <div className="mb-4 text-red-600">
-          <strong>Erreur :</strong> {err}
-        </div>
-      )}
-
-      {resultat && resultat.ok && selection?.action === "Gb" && (
+      {resultat && "ok" in resultat && resultat.ok && selection?.action === "Gb" && (
         <GenerateurGb loterieId={selection.loterieId} />
       )}
-    </main>
+
+      {resultat && "ok" in resultat && resultat.ok && selection?.action === "Gn" && (
+        <Placeholder>
+          <div className="text-green-700 font-semibold">Combinaisons générées (mode Gn)</div>
+          <pre className="mt-2 overflow-auto text-sm">{JSON.stringify(resultat.data, null, 2)}</pre>
+        </Placeholder>
+      )}
+
+      {selection?.action === "V" && <Placeholder>Résultat de la vérification (à brancher).</Placeholder>}
+      {selection?.action === "Vb" && <Placeholder>Résultat de la vérification de blocs (à brancher).</Placeholder>}
+      {selection?.action === "A" && <Placeholder>Analyse de la combinaison (à brancher).</Placeholder>}
+      {selection?.action === "H" && <Placeholder>Historique des combinaisons (à brancher).</Placeholder>}
+
+      {resultat && (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm text-gray-600">Voir la réponse brute</summary>
+          <pre className="mt-2 overflow-auto text-xs">{JSON.stringify(resultat, null, 2)}</pre>
+        </details>
+      )}
+    </div>
   );
 }
