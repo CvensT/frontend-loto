@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import MenuPrincipal from "../components/MenuPrincipal";
-import GenerateurGb from "../components/GenerateurGb";
-import VerificationCombinaison from "../components/VerificationCombinaison";
-import VerificationBlocs from "../components/VerificationBlocs";
+import MenuPrincipal from "./components/MenuPrincipal";
+import GenerateurGb from "./components/GenerateurGb";
+import VerificationCombinaison from "./components/VerificationCombinaison";
+import VerificationBlocs from "./components/VerificationBlocs";
 
 type Combinaison = {
   bloc: number;
@@ -14,7 +14,7 @@ type Combinaison = {
 
 type ApiSuccess = {
   ok: true;
-  data: Combinaison[] | { combinaison: number[] };
+  data: Combinaison[];
   echo?: { loterie: string; blocs: number };
   source?: string;
 };
@@ -22,61 +22,62 @@ type ApiSuccess = {
 type ApiError = {
   ok: false;
   error: string;
+  [key: string]: unknown;
 };
 
 type ApiResponse = ApiSuccess | ApiError;
 
-export default function Page() {
+export default function Home() {
   const [resultat, setResultat] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [selection, setSelection] = useState<{ loterieId: string; action: string } | null>(null);
-
-  const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "";
+  const [selection, setSelection] = useState<{
+    loterieId: string;
+    action: string;
+  } | null>(null);
 
   const appelerAPI = async (action: string, loterieId: string) => {
-    setLoading(true);
-    setErr(null);
-    setResultat(null);
-
     try {
-      if (action === "Gb") {
-        const res = await fetch(`${base}/api/generer`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ loterie: loterieId, blocs: 1, mode: action }),
-        });
+      setLoading(true);
+      setResultat(null);
+      setErr(null);
 
-        const data: ApiResponse = await res.json();
-        if (!res.ok || !data.ok) {
-          setErr(data.ok === false ? data.error : "Erreur API");
-        } else {
-          setResultat(data);
-        }
-      } else {
-        setErr("Ce mode nécessite une interaction utilisateur.");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/generer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: action, loterie: loterieId, blocs: 1 }),
+      });
+
+      const json: ApiResponse = await res.json();
+      setResultat(json);
+      setSelection({ action, loterieId });
+
+      if (!json.ok) {
+        setErr(json.error || "Erreur inconnue");
       }
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+    } catch (e: any) {
+      setErr(e.message || "Erreur réseau");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="mx-auto max-w-3xl p-4">
-      <MenuPrincipal
-        onChoix={(loterieId, action) => {
-          setSelection({ loterieId, action });
-          appelerAPI(action, loterieId);
-        }}
-      />
+    <main className="p-8 max-w-3xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">🎯 AI Générateur de Combinaisons</h1>
 
-      {loading && <div className="mt-4 text-gray-600">⏳ Chargement...</div>}
-      {err && <div className="mt-4 text-red-600">❌ {err}</div>}
+      <MenuPrincipal onSubmit={appelerAPI} />
 
-      {selection?.action === "Gb" && resultat?.ok && (
-        <GenerateurGb loterieId={selection.loterieId} />
+      {loading && <p className="text-blue-600 mt-4">Chargement...</p>}
+
+      {err && (
+        <p className="text-red-600 mt-4 font-semibold">
+          ❌ Erreur : {err}
+        </p>
+      )}
+
+      {resultat?.ok && selection?.action === "Gb" && (
+        <GenerateurGb data={resultat.data} source={resultat.source} />
       )}
 
       {selection?.action === "V" && (
@@ -86,6 +87,6 @@ export default function Page() {
       {selection?.action === "Vb" && (
         <VerificationBlocs loterieId={selection.loterieId} />
       )}
-    </div>
+    </main>
   );
 }
