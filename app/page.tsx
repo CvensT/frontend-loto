@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import MenuPrincipal from "./components/MenuPrincipal";
-import GenerateurGb from "./components/GenerateurGb";
-import VerificationCombinaison from "./components/VerificationCombinaison";
-import VerificationBlocs from "./components/VerificationBlocs";
+import MenuPrincipal from "../components/MenuPrincipal";
+import GenerateurGb from "../components/GenerateurGb";
+import VerificationCombinaison from "../components/VerificationCombinaison";
+import VerificationBlocs from "../components/VerificationBlocs";
 
 type Combinaison = {
   bloc: number;
@@ -14,7 +14,7 @@ type Combinaison = {
 
 type ApiSuccess = {
   ok: true;
-  data: Combinaison[] | { combinaison: number[] };
+  data: Combinaison[];
   echo?: { loterie: string; blocs: number };
   source?: string;
 };
