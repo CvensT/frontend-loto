@@ -5,8 +5,8 @@ import MenuPrincipal from "./components/MenuPrincipal";
 import GenerateurGb from "./components/GenerateurGb";
 import VerificationCombinaison from "./components/VerificationCombinaison";
 import VerificationBlocs from "./components/VerificationBlocs";
-import VerificationHistorique from "./components/VerificationHistorique";
 
+// Types pour les données API
 type Combinaison = {
   bloc: number;
   combinaison: number[];
@@ -15,7 +15,7 @@ type Combinaison = {
 
 type ApiSuccess = {
   ok: true;
-  data: Combinaison[] | { combinaison: number[] };
+  data: Combinaison[];
   echo?: { loterie: string; blocs: number };
   source?: string;
 };
@@ -33,7 +33,7 @@ export default function Page() {
   const [err, setErr] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ loterieId: string; action: string } | null>(null);
 
-  const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "";
+  const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+\$/, "") || "";
 
   const appelerAPI = async (action: string, loterieId: string) => {
     setLoading(true);
@@ -41,7 +41,7 @@ export default function Page() {
     setResultat(null);
 
     try {
-      if (action === "Gn" || action === "Gb") {
+      if (action === "Gb") {
         const res = await fetch(`${base}/api/generer`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -80,25 +80,12 @@ export default function Page() {
         <GenerateurGb loterieId={selection.loterieId} />
       )}
 
-      {selection?.action === "Gn" && resultat?.ok && (
-        <div className="mt-4">
-          <h2 className="font-semibold text-green-700">Génération normale (Gn)</h2>
-          <pre className="mt-2 bg-gray-100 p-2 rounded text-sm overflow-auto">
-            {JSON.stringify(resultat.data, null, 2)}
-          </pre>
-        </div>
-      )}
-
       {selection?.action === "V" && (
         <VerificationCombinaison loterieId={selection.loterieId} />
       )}
 
       {selection?.action === "Vb" && (
         <VerificationBlocs loterieId={selection.loterieId} />
-      )}
-
-      {selection?.action === "H" && (
-        <VerificationHistorique loterieId={selection.loterieId} />
       )}
     </div>
   );
