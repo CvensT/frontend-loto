@@ -2,18 +2,42 @@
 
 import { useMemo, useState } from "react";
 
-type VerifierBlocSuccess = { ok: true; data: { valide: boolean; erreurs: string[]; details: unknown } };
-type ApiError           = { ok: false; error: string; [k: string]: unknown };
-type ApiResponse        = VerifierBlocSuccess | ApiError;
+type VerifierBlocSuccess = {
+  ok: true;
+  data: {
+    valide: boolean;
+    erreurs: string[];
+    /** Tableau parallèle aux lignes soumises.
+     * Chaque item peut contenir:
+     * - Combinaison: number[]
+     * - Booléens nommés exactement comme tes critères (see KEYS ci-dessous)
+     */
+    details: Array<Record<string, unknown>>;
+  };
+};
+type ApiError = { ok: false; error: string; [k: string]: unknown };
+type ApiResponse = VerifierBlocSuccess | ApiError;
 
 const CFG = {
   "1": { name: "Grande Vie", numsPerComb: 5, baseCount: 9, somme: [80, 179] as [number, number] },
-  "2": { name: "Lotto Max",  numsPerComb: 7, baseCount: 7, somme: [140, 219] as [number, number] },
+  "2": { name: "Lotto Max", numsPerComb: 7, baseCount: 7, somme: [140, 219] as [number, number] },
   "3": { name: "Lotto 6/49", numsPerComb: 6, baseCount: 8, somme: [100, 199] as [number, number] },
 } as const;
 
 const TICK = "✔";
 const CROSS = "✗";
+
+/** Les libellés attendus dans `details[i]` côté backend */
+const KEYS = [
+  "Pair/Impair",
+  "Petit/Grand",
+  "Séries",
+  "Dizaines",
+  "Fin identique",
+  "Diversité finales",
+  "Symboliques",
+  "Somme",
+] as const;
 
 function fmtComb(nums: number[]) {
   return nums.map((n) => n.toString().padStart(2, "0")).join(" ");
@@ -21,11 +45,14 @@ function fmtComb(nums: number[]) {
 function padRight(s: string, w: number) {
   return s + " ".repeat(Math.max(0, w - s.length));
 }
+
 function buildAsciiTable(rows: Array<{
   comb: number[];
   checks: Record<string, boolean>;
   sommeRange: [number, number];
 }>) {
+  const sommeLabel = `Somme : ${rows[0]?.sommeRange?.[0] ?? "?"} - ${rows[0]?.sommeRange?.[1] ?? "?"}`;
+
   const headers = [
     "No",
     "Combinaison",
@@ -36,23 +63,33 @@ function buildAsciiTable(rows: Array<{
     "Fin id.",
     "Diversité",
     "Symboliques",
-    `Somme : ${rows[0]?.sommeRange[0] ?? "?"} - ${rows[0]?.sommeRange[1] ?? "?"}`,
+    sommeLabel,
   ];
-  const data = rows.map((r, i) => [
-    `${String(i + 1).padStart(2, "0")}.`,
-    fmtComb(r.comb),
-    r.checks["Pair/Impair"] ? TICK : CROSS,
-    r.checks["Petit/Grand"] ? TICK : CROSS,
-    r.checks["Séries"] ? TICK : CROSS,
-    r.checks["Dizaines"] ? TICK : CROSS,
-    r.checks["Fin identique"] ? TICK : CROSS,
-    r.checks["Diversité finales"] ? TICK : CROSS,
-    r.checks["Symboliques"] ? TICK : CROSS,
-    `${r.checks["Somme"] ? TICK : CROSS} (${String(r.comb.reduce((a, b) => a + b, 0))})`,
-  ]);
-  const widths = headers.map((h, c) => Math.max(h.length, ...data.map((row) => row[c].length)));
-  const sep = "-".repeat(widths.reduce((acc, w, i) => acc + w + (i ? 3 : 0), 0));
+
+  const data = rows.map((r, i) => {
+    const sum = r.comb.reduce((a, b) => a + b, 0);
+    return [
+      `${String(i + 1).padStart(2, "0")}.`,
+      fmtComb(r.comb),
+      r.checks["Pair/Impair"] ? TICK : CROSS,
+      r.checks["Petit/Grand"] ? TICK : CROSS,
+      r.checks["Séries"] ? TICK : CROSS,
+      r.checks["Dizaines"] ? TICK : CROSS,
+      r.checks["Fin identique"] ? TICK : CROSS,
+      r.checks["Diversité finales"] ? TICK : CROSS,
+      r.checks["Symboliques"] ? TICK : CROSS,
+      `${r.checks["Somme"] ? TICK : CROSS} (${String(sum)})`,
+    ];
+  });
+
+  // Largeurs de colonnes robustes
+  const widths = headers.map((h, c) =>
+    Math.max(h.length, ...(data.length ? data.map((row) => row[c].length) : [0]))
+  );
+
+  const sep = widths.map((w, i) => "-".repeat(w)).join(" | ");
   const line = (cols: string[]) => cols.map((s, i) => padRight(s, widths[i])).join(" | ");
+
   let out = "";
   out += line(headers) + "\n";
   out += sep + "\n";
@@ -64,8 +101,14 @@ function parseBlockText(text: string, numsPerComb: number) {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const block: number[][] = [];
   for (const l of lines) {
-    const nums = l.replace(/[;,]+/g, " ").split(/\s+/).map((t) => parseInt(t, 10)).filter(Number.isFinite);
-    if (nums.length !== numsPerComb) throw new Error(`Chaque ligne doit contenir ${numsPerComb} nombres — "${l}"`);
+    const nums = l
+      .replace(/[;,]+/g, " ")
+      .split(/\s+/)
+      .map((t) => Number.parseInt(t, 10))
+      .filter((n) => Number.isFinite(n));
+    if (nums.length !== numsPerComb) {
+      throw new Error(`Chaque ligne doit contenir exactement ${numsPerComb} nombres — « ${l} »`);
+    }
     block.push([...nums].sort((a, b) => a - b));
   }
   return block;
@@ -73,8 +116,6 @@ function parseBlockText(text: string, numsPerComb: number) {
 
 export default function VerificationBlocs({ loterieId }: { loterieId: string }) {
   const cfg = CFG[(loterieId as keyof typeof CFG) ?? "2"];
-
-  // éviter l’union littérale 7|8|9 et corriger deps des hooks
   const baseCount = Number(cfg.baseCount);
   const numsPerComb = Number(cfg.numsPerComb);
   const expectedTotal = baseCount + 1;
@@ -90,14 +131,14 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
     const sample: number[][] =
       loterieId === "2"
         ? [
-            [3,10,15,17,24,36,47],
-            [5,14,18,25,42,45,46],
-            [1,2,26,27,31,38,44],
-            [9,12,21,23,40,41,43],
-            [4,8,13,33,35,37,39],
-            [6,7,16,19,28,34,50],
-            [11,20,22,29,30,48,49],
-            [11,12,25,28,29,32,39] // étoile
+            [3, 10, 15, 17, 24, 36, 47],
+            [5, 14, 18, 25, 42, 45, 46],
+            [1, 2, 26, 27, 31, 38, 44],
+            [9, 12, 21, 23, 40, 41, 43],
+            [4, 8, 13, 33, 35, 37, 39],
+            [6, 7, 16, 19, 28, 34, 50],
+            [11, 20, 22, 29, 30, 48, 49],
+            [11, 12, 25, 28, 29, 32, 39], // étoile
           ]
         : Array.from({ length: total }, () =>
             Array.from({ length: numsPerComb }, (_, i) => i + 1)
@@ -111,39 +152,56 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
     setAscii("");
     try {
       const parsed = parseBlockText(blocText, numsPerComb);
-      if (parsed.length !== expectedTotal) throw new Error(`Il faut ${expectedTotal} lignes (base ${baseCount} + 1 étoile).`);
-      if (etoileIndex < 0 || etoileIndex >= parsed.length) throw new Error(`etoileIndex doit être entre 0 et ${parsed.length - 1}.`);
 
-      // Doublons base + réutilisés/nouveaux étoile (analyse locale)
+      if (parsed.length !== expectedTotal) {
+        throw new Error(`Il faut ${expectedTotal} lignes (base ${baseCount} + 1 étoile). Lignes actuelles: ${parsed.length}`);
+      }
+      if (!(etoileIndex >= 0 && etoileIndex < parsed.length)) {
+        throw new Error(`Index étoile invalide : ${etoileIndex} (autorisé: 0 à ${parsed.length - 1}).`);
+      }
+
+      // Doublons de NUMÉROS entre combinaisons de base
       const baseIdx = parsed.map((_, i) => i).filter((i) => i !== etoileIndex);
       const counts: Record<number, number> = {};
       for (const i of baseIdx) for (const n of parsed[i]) counts[n] = (counts[n] ?? 0) + 1;
       const dups = Object.keys(counts).map(Number).filter((n) => counts[n] > 1).sort((a, b) => a - b);
 
+      // Etoile: réutilisés / nouveaux
       const starSet = new Set(parsed[etoileIndex]);
       const baseSet = new Set(baseIdx.flatMap((i) => parsed[i]));
       const reused = [...starSet].filter((n) => baseSet.has(n)).sort((a, b) => a - b);
       const nouveau = [...starSet].filter((n) => !baseSet.has(n)).sort((a, b) => a - b);
 
-      // Backend : critères par combinaison dans `details`
+      // Appel backend
       const r = await fetch("/api/verifier-bloc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loterie: loterieId, bloc: parsed, etoileIndex }),
         cache: "no-store",
       });
-      const t = await r.text();
-      const parsedResp: ApiResponse = (() => {
-        try { return JSON.parse(t) as ApiResponse; } catch { return { ok: false, error: t || "Réponse invalide" }; }
-      })();
-      if (!parsedResp.ok || !Array.isArray(parsedResp.data.details)) {
-        throw new Error(!parsedResp.ok ? parsedResp.error : "Réponse sans détails");
-      }
 
-      const details = parsedResp.data.details as Array<Record<string, unknown>>;
+      const raw = await r.text();
+      const resp: ApiResponse = (() => {
+        try { return JSON.parse(raw) as ApiResponse; }
+        catch { return { ok: false, error: raw || "Réponse invalide du serveur" }; }
+      })();
+
+      if (!resp.ok) throw new Error(resp.error ?? "Erreur serveur (verifier-bloc)");
+      if (!Array.isArray(resp.data.details)) throw new Error("Réponse sans tableau 'details'.");
+
+      // Normalisation des lignes pour l’affichage
+      const details = resp.data.details as Array<Record<string, unknown>>;
       const rows = details.map((obj, i) => {
-        const comb = (obj["Combinaison"] as number[]) ?? parsed[i];
-        return { comb, checks: obj as Record<string, boolean>, sommeRange: cfg.somme };
+        const comb = Array.isArray(obj["Combinaison"])
+          ? (obj["Combinaison"] as number[])
+          : parsed[i];
+
+        // Checks: prend les booléens s’ils existent, sinon false (évite trous dans le tableau)
+        const checks: Record<string, boolean> = {};
+        for (const k of KEYS) {
+          checks[k] = typeof obj[k] === "boolean" ? (obj[k] as boolean) : false;
+        }
+        return { comb, checks, sommeRange: cfg.somme };
       });
 
       const table = "Bloc 1 :\n" + buildAsciiTable(rows);
