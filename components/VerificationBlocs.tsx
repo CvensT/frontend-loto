@@ -87,7 +87,8 @@ function buildAsciiTable(rows: Array<{
     Math.max(h.length, ...(data.length ? data.map((row) => row[c].length) : [0]))
   );
 
-  const sep = widths.map((w, i) => "-".repeat(w)).join(" | ");
+  // ⚠️ Fix: retirer le paramètre i inutilisé
+  const sep = widths.map((w) => "-".repeat(w)).join(" | ");
   const line = (cols: string[]) => cols.map((s, i) => padRight(s, widths[i])).join(" | ");
 
   let out = "";
@@ -114,7 +115,7 @@ function parseBlockText(text: string, numsPerComb: number) {
   return block;
 }
 
-export default function VerificationBlocs({ loterieId }: { loterieId: string }) {
+export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" | "3" }) {
   const cfg = CFG[(loterieId as keyof typeof CFG) ?? "2"];
   const baseCount = Number(cfg.baseCount);
   const numsPerComb = Number(cfg.numsPerComb);
@@ -214,8 +215,9 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
         `⚠️  Numéros nouveaux (restants) dans la combinaison étoile : [${nouveau.join(", ")}]`;
 
       setAscii(table + recap);
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : String(e));
+    } catch (e) {
+      if (e instanceof Error) setErr(e.message);
+      else setErr(String(e));
     } finally {
       setLoading(false);
     }
@@ -265,3 +267,4 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
     </div>
   );
 }
+
