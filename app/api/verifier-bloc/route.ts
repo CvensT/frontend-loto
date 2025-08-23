@@ -41,8 +41,10 @@ export async function POST(req: Request) {
         headers: { "Content-Type": r.headers.get("Content-Type") || "text/plain" },
       });
     }
-  } catch (e: any) {
-    const msg = e?.name === "AbortError" ? "Timeout backend" : e?.message || "Erreur inconnue";
-    return NextResponse.json({ ok: false, error: msg }, { status: 502 });
-  }
+  } catch (e: unknown) {
+  const msg =
+    e instanceof Error
+      ? (e.name === "AbortError" ? "Timeout backend" : e.message)
+      : "Erreur inconnue";
+  return NextResponse.json({ ok: false, error: msg }, { status: 502 });
 }
