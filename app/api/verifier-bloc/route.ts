@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 export const dynamic = "force-dynamic";
 
 const API = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL;
@@ -17,12 +18,8 @@ export async function POST(req: Request) {
     const bloc = Array.isArray(payload.bloc) ? payload.bloc : [];
     const etoileIndex = typeof payload.etoileIndex === "number" ? payload.etoileIndex : undefined;
 
-    if (bloc.length === 0) {
-      return NextResponse.json({ ok: false, error: "bloc manquant" }, { status: 400 });
-    }
-
     const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), 20000);
+    const t = setTimeout(() => ac.abort(), 20_000);
 
     const r = await fetch(`${base}/api/verifier-bloc`, {
       method: "POST",
@@ -43,11 +40,8 @@ export async function POST(req: Request) {
     }
   } catch (e: unknown) {
     const msg =
-      e instanceof Error
-        ? e.name === "AbortError"
-          ? "Timeout backend"
-          : e.message
-        : "Erreur inconnue";
+      e instanceof Error ? (e.name === "AbortError" ? "Timeout backend" : e.message) : "Erreur inconnue";
     return NextResponse.json({ ok: false, error: msg }, { status: 502 });
   }
 }
+
