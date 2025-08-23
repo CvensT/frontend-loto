@@ -6,20 +6,40 @@ import GenerateurGb from "../components/GenerateurGb";
 import VerificationCombinaison from "../components/VerificationCombinaison";
 import VerificationBlocs from "../components/VerificationBlocs";
 
-type Selection = { loterieId: string; action: "Gb" | "V" | "Vb" };
+type Action = "Gb" | "V" | "Vb";
 
 export default function Page() {
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const [action, setAction] = useState<Action | null>(null);
+  const [loterieId, setLoterieId] = useState<string>("2"); // "1" GV, "2" Lotto Max, "3" 6/49
 
   return (
-    <main className="p-6 max-w-4xl mx-auto space-y-6">
-      <MenuPrincipal onChange={setSelection} defaultLoterieId="2" />
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 space-y-6">
+      <h1 className="text-3xl font-bold">🎲 AI Générateur de Combinaisons</h1>
 
-      {!selection && <div>Sélectionne une action dans le menu.</div>}
+      {/* Sélecteur de loterie */}
+      <div className="flex items-center gap-2">
+        <span>Sélectionnez une loterie :</span>
+        <select
+          value={loterieId}
+          onChange={(e) => setLoterieId(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
+          <option value="1">Grande Vie</option>
+          <option value="2">Lotto Max</option>
+          <option value="3">Lotto 6/49</option>
+        </select>
+      </div>
 
-      {selection?.action === "Gb" && <GenerateurGb loterieId={selection.loterieId} />}
-      {selection?.action === "V"  && <VerificationCombinaison loterieId={selection.loterieId} />}
-      {selection?.action === "Vb" && <VerificationBlocs loterieId={selection.loterieId} />}
+      {/* Menu Gb / V / Vb */}
+      <MenuPrincipal
+        onChange={({ action }) => setAction(action)}
+        defaultLoterieId={loterieId}
+      />
+
+      {/* Rendu conditionnel */}
+      {action === "Gb" && <GenerateurGb loterieId={loterieId} />}
+      {action === "V" && <VerificationCombinaison loterieId={loterieId} />}
+      {action === "Vb" && <VerificationBlocs loterieId={loterieId} />}
     </main>
   );
 }
