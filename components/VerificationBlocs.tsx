@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 type VerifierBlocSuccess = {
   ok: true;
-  data: { valide: boolean; erreurs: string[]; details: any };
+  data: { valide: boolean; erreurs: string[]; details: unknown };
 };
 type ApiError = { ok: false; error: string; [k: string]: unknown };
 type ApiResponse = VerifierBlocSuccess | ApiError;
