@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-type ApiSuccess = { ok: true; data: any; [k: string]: any };
-type ApiError = { ok: false; error: string; [k: string]: any };
+type ApiSuccess = { ok: true; data: unknown; [k: string]: unknown };
+type ApiError   = { ok: false; error: string; [k: string]: unknown };
 type ApiResponse = ApiSuccess | ApiError;
 
 export default function GenerateurGb({ loterieId }: { loterieId: string }) {
