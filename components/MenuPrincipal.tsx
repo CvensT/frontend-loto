@@ -9,10 +9,10 @@ type Props = {
 
 export default function MenuPrincipal({ loterieId, onChangeLoterie, action, onChangeAction }: Props) {
   return (
-    <div className="border p-4 rounded space-y-4 text-center w-full max-w-md">
+    <div className="border p-4 rounded space-y-4">
       <h2 className="text-xl font-bold">🎯 Menu principal</h2>
 
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex items-center gap-2">
         <label htmlFor="loterie">Loterie</label>
         <select
           id="loterie"
@@ -53,4 +53,3 @@ export default function MenuPrincipal({ loterieId, onChangeLoterie, action, onCh
     </div>
   );
 }
-
