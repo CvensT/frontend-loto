@@ -4,10 +4,7 @@ import { useMemo, useState } from "react";
 
 type ApiSuccess = {
   ok: true;
-  data: {
-    existe: boolean;
-    criteres?: Record<string, any>;
-  };
+  data: { existe: boolean; criteres?: Record<string, unknown> };
 };
 type ApiError = { ok: false; error: string; [k: string]: unknown };
 type ApiResponse = ApiSuccess | ApiError;
