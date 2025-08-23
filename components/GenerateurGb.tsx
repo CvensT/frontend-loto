@@ -1,135 +1,115 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
-type GenItem = { bloc: number; combinaison: number[]; etoile: boolean };
-type GenSuccess = { ok: true; data: GenItem[]; [k: string]: unknown };
-type GenError   = { ok: false; error: string; [k: string]: unknown };
-type ApiResponse = GenSuccess | GenError;
+type Props = {
+  loterieId: "1" | "2" | "3";
+};
 
-function Chip({
-  n,
-  variant = "base",
-}: {
-  n: number;
-  variant?: "base" | "star-reuse" | "star-new";
-}) {
-  const cls =
-    variant === "star-reuse"
-      ? "bg-red-50 border-red-300 text-red-700"
-      : variant === "star-new"
-      ? "bg-blue-50 border-blue-300 text-blue-700"
-      : "bg-gray-50 border-gray-300 text-gray-800";
-  return (
-    <span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium border ${cls}`}>
-      {n.toString().padStart(2, "0")}
-    </span>
-  );
-}
+type Combinaison = {
+  bloc: number;
+  combinaison: number[];
+  etoile: boolean;
+};
 
-export default function GenerateurGb({ loterieId }: { loterieId: string }) {
-  const [blocsCount, setBlocsCount] = useState(1);
-  const [result, setResult] = useState<ApiResponse | string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+type ApiSuccess = {
+  ok: true;
+  data: Combinaison[];
+  echo?: { loterie: string; blocs: number };
+  source?: string;
+};
+
+type ApiError = {
+  ok: false;
+  error: string;
+  [key: string]: unknown;
+};
+
+type ApiResponse = ApiSuccess | ApiError;
+
+export default function GenerateurGb({ loterieId }: Props) {
+  const [resultat, setResultat] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [nbBlocs, setNbBlocs] = useState(1);
 
-  const submit = async () => {
+  const generer = async () => {
     setLoading(true);
     setErr(null);
-    setResult(null);
+    setResultat(null);
+
     try {
       const r = await fetch("/api/generer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loterie: loterieId, mode: "Gb", blocs: blocsCount }),
-        cache: "no-store",
+        body: JSON.stringify({
+          loterie: loterieId,
+          mode: "Gb",
+          blocs: nbBlocs,
+        }),
       });
-      const text = await r.text();
-      try {
-        setResult(JSON.parse(text) as ApiResponse);
-      } catch {
-        setResult(text);
-      }
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : String(e));
+
+      const json: ApiResponse = await r.json();
+      setResultat(json);
+    } catch (e) {
+      if (e instanceof Error) setErr(e.message);
+      else setErr(String(e));
     } finally {
       setLoading(false);
     }
   };
 
-  const grouped = useMemo(() => {
-    if (!result || typeof result === "string" || !("ok" in result) || !result.ok)
-      return new Map<number, GenItem[]>();
-    const map = new Map<number, GenItem[]>();
-    for (const it of result.data as GenItem[]) {
-      if (!map.has(it.bloc)) map.set(it.bloc, []);
-      map.get(it.bloc)!.push(it);
-    }
-    for (const [k, arr] of map) {
-      arr.sort((a, b) => Number(a.etoile) - Number(b.etoile)); // bases avant étoile
-      map.set(k, arr);
-    }
-    return map;
-  }, [result]);
-
   return (
-    <div className="rounded-2xl border p-4 space-y-3">
-      <h3 className="font-semibold">Gb — Génération par blocs couvrants (+ étoile)</h3>
+    <div className="border rounded-2xl p-4 space-y-4 w-full max-w-2xl">
+      <div className="text-lg font-semibold">Gb — Génération par blocs couvrants (+ étoile)</div>
 
-      <div className="flex items-center gap-3">
-        <label className="text-sm">Nombre de blocs</label>
+      <label className="flex items-center gap-2">
+        <span className="text-sm text-gray-700">Nombre de blocs :</span>
         <input
           type="number"
+          value={nbBlocs}
+          onChange={(e) => setNbBlocs(Number(e.target.value))}
           min={1}
-          value={blocsCount}
-          onChange={(e) => setBlocsCount(Math.max(1, parseInt(e.target.value || "1", 10)))}
-          className="border rounded px-2 py-1 w-24"
+          max={30}
+          className="w-20 rounded-xl border px-2 py-1 text-center"
         />
-        <button onClick={submit} disabled={loading} className="px-3 py-2 rounded-xl border">
+      </label>
+
+      <div className="flex gap-4">
+        <button
+          onClick={generer}
+          disabled={loading}
+          className="rounded-xl px-4 py-2 border hover:bg-gray-50 disabled:opacity-60"
+        >
           {loading ? "Génération..." : "Générer"}
+        </button>
+        <button
+          onClick={() => {
+            setResultat(null);
+            setErr(null);
+          }}
+          className="rounded-xl px-4 py-2 border hover:bg-gray-50"
+        >
+          Réinitialiser
         </button>
       </div>
 
       {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
 
-      {/* Un seul bloc par rangée (vertical) */}
-      {grouped.size > 0 && (
-        <div className="space-y-4">
-          {[...grouped.entries()].map(([blocId, items]) => {
-            const bases = items.filter((i) => !i.etoile);
-            const star = items.find((i) => i.etoile);
-            const baseNums = new Set(bases.flatMap((b) => b.combinaison));
-            const starReuse = star ? star.combinaison.filter((n) => baseNums.has(n)) : [];
-            const starNew = star ? star.combinaison.filter((n) => !baseNums.has(n)) : [];
-            return (
-              <div key={blocId} className="rounded-xl border p-3">
-                <div className="mb-2 font-semibold">Bloc {blocId}</div>
-                <div className="grid gap-2">
-                  {bases.map((it, idx) => (
-                    <div key={idx} className="flex flex-wrap gap-1">
-                      {it.combinaison.map((n) => (
-                        <Chip key={n} n={n} />
-                      ))}
-                    </div>
-                  ))}
-
-                  {star && (
-                    <div className="mt-1">
-                      <div className="text-xs font-medium mb-1">★ Étoile</div>
-                      <div className="flex flex-wrap gap-1">
-                        {starReuse.map((n) => (
-                          <Chip key={`r-${n}`} n={n} variant="star-reuse" />
-                        ))}
-                        {starNew.map((n) => (
-                          <Chip key={`n-${n}`} n={n} variant="star-new" />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+      {resultat !== null && resultat.ok && (
+        <div>
+          {resultat.echo && (
+            <p className="text-sm text-gray-500">
+              Loterie {resultat.echo.loterie} — {resultat.echo.blocs} blocs
+              générés ({resultat.data.length} combinaisons)
+            </p>
+          )}
+          <pre className="whitespace-pre-wrap font-mono text-sm mt-2">
+            {resultat.data.map((c) => {
+              const nums = c.combinaison.map((n) => String(n).padStart(2, "0")).join(" ");
+              return `Bloc ${c.bloc} → ${nums}${c.etoile ? "  ★" : ""}`;
+            }).join("\n")}
+          </pre>
         </div>
       )}
     </div>
