@@ -9,14 +9,15 @@ import VerificationBlocs from "../components/VerificationBlocs";
 type Action = "Gb" | "V" | "Vb";
 
 export default function Page() {
-  const [action, setAction] = useState<Action>("Vb");   // mode par défaut
-  const [loterieId, setLoterieId] = useState<"1" | "2" | "3">("2"); // "2" = Lotto Max
+  // source de vérité
+  const [action, setAction] = useState<Action>("Vb");
+  const [loterieId, setLoterieId] = useState<"1" | "2" | "3">("2");
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-4 space-y-6">
+    <main className="min-h-screen flex flex-col items-center p-6 space-y-6">
       <h1 className="text-3xl font-bold">🎲 AI Générateur de Combinaisons</h1>
 
-      {/* ✅ Le seul endroit qui contrôle loterie + action */}
+      {/* ✅ Le menu contrôle TOUT (loterie + action). Aucun autre select au-dessus. */}
       <MenuPrincipal
         loterieId={loterieId}
         onChangeLoterie={setLoterieId}
@@ -31,4 +32,3 @@ export default function Page() {
     </main>
   );
 }
-
