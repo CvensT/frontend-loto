@@ -10,7 +10,7 @@ type VerifierBlocSuccess = {
     /** Tableau parallèle aux lignes soumises.
      * Chaque item peut contenir:
      * - Combinaison: number[]
-     * - Booléens nommés exactement comme tes critères (see KEYS ci-dessous)
+     * - Booléens nommés exactement comme tes critères (voir KEYS ci-dessous)
      */
     details: Array<Record<string, unknown>>;
   };
@@ -19,15 +19,15 @@ type ApiError = { ok: false; error: string; [k: string]: unknown };
 type ApiResponse = VerifierBlocSuccess | ApiError;
 
 const CFG = {
-  "1": { name: "Grande Vie", numsPerComb: 5, baseCount: 9, somme: [80, 179] as [number, number] },
-  "2": { name: "Lotto Max", numsPerComb: 7, baseCount: 7, somme: [140, 219] as [number, number] },
-  "3": { name: "Lotto 6/49", numsPerComb: 6, baseCount: 8, somme: [100, 199] as [number, number] },
+  "1": { name: "Grande Vie", numsPerComb: 5, baseCount: 9,  somme: [80, 179] as [number, number] },
+  "2": { name: "Lotto Max",  numsPerComb: 7, baseCount: 7,  somme: [140, 219] as [number, number] },
+  "3": { name: "Lotto 6/49", numsPerComb: 6, baseCount: 8,  somme: [100, 199] as [number, number] },
 } as const;
 
 const TICK = "✔";
 const CROSS = "✗";
 
-/** Les libellés attendus dans `details[i]` côté backend */
+/** Libellés attendus dans `details[i]` côté backend */
 const KEYS = [
   "Pair/Impair",
   "Petit/Grand",
@@ -87,7 +87,7 @@ function buildAsciiTable(rows: Array<{
     Math.max(h.length, ...(data.length ? data.map((row) => row[c].length) : [0]))
   );
 
-  // ⚠️ Fix: retirer le paramètre i inutilisé
+  // ✅ pas de variable inutile
   const sep = widths.map((w) => "-".repeat(w)).join(" | ");
   const line = (cols: string[]) => cols.map((s, i) => padRight(s, widths[i])).join(" | ");
 
@@ -167,7 +167,7 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
       for (const i of baseIdx) for (const n of parsed[i]) counts[n] = (counts[n] ?? 0) + 1;
       const dups = Object.keys(counts).map(Number).filter((n) => counts[n] > 1).sort((a, b) => a - b);
 
-      // Etoile: réutilisés / nouveaux
+      // Étoile: réutilisés / nouveaux
       const starSet = new Set(parsed[etoileIndex]);
       const baseSet = new Set(baseIdx.flatMap((i) => parsed[i]));
       const reused = [...starSet].filter((n) => baseSet.has(n)).sort((a, b) => a - b);
@@ -197,7 +197,7 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
           ? (obj["Combinaison"] as number[])
           : parsed[i];
 
-        // Checks: prend les booléens s’ils existent, sinon false (évite trous dans le tableau)
+        // Checks: booléens s’ils existent, sinon false (évite les trous)
         const checks: Record<string, boolean> = {};
         for (const k of KEYS) {
           checks[k] = typeof obj[k] === "boolean" ? (obj[k] as boolean) : false;
@@ -267,4 +267,3 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
     </div>
   );
 }
-
