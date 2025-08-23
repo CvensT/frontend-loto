@@ -25,9 +25,7 @@ export default function MenuPrincipal({
         <button onClick={() => choisir("V")}  className="px-3 py-2 rounded-xl border">V</button>
         <button onClick={() => choisir("Vb")} className="px-3 py-2 rounded-xl border">Vb</button>
       </div>
-      <p className="pt-1 text-sm">
-        👉 Que voulez-vous faire ? <span className="font-mono">[Gb/V/Vb]</span>
-      </p>
+      <p className="pt-1 text-sm">👉 Que voulez-vous faire ? <span className="font-mono">[Gb/V/Vb]</span></p>
     </div>
   );
 }
