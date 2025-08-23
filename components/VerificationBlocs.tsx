@@ -7,23 +7,65 @@ type ApiError           = { ok: false; error: string; [k: string]: unknown };
 type ApiResponse        = VerifierBlocSuccess | ApiError;
 
 const CFG = {
-  "1": { name: "Grande Vie", numsPerComb: 5, baseCount: 9 },
-  "2": { name: "Lotto Max",  numsPerComb: 7, baseCount: 7 },
-  "3": { name: "Lotto 6/49", numsPerComb: 6, baseCount: 8 },
+  "1": { name: "Grande Vie", numsPerComb: 5, baseCount: 9, somme: [80, 179] as [number, number] },
+  "2": { name: "Lotto Max",  numsPerComb: 7, baseCount: 7, somme: [140, 219] as [number, number] },
+  "3": { name: "Lotto 6/49", numsPerComb: 6, baseCount: 8, somme: [100, 199] as [number, number] },
 } as const;
+
+const TICK = "✔";
+const CROSS = "✗";
+
+function fmtComb(nums: number[]) {
+  return nums.map((n) => n.toString().padStart(2, "0")).join(" ");
+}
+function padRight(s: string, w: number) {
+  return s + " ".repeat(Math.max(0, w - s.length));
+}
+function buildAsciiTable(rows: Array<{
+  comb: number[];
+  checks: Record<string, boolean>;
+  sommeRange: [number, number];
+}>) {
+  const headers = [
+    "No",
+    "Combinaison",
+    "Pair/Impair",
+    "Petit/Grand",
+    "Séries",
+    "Dizaines",
+    "Fin id.",
+    "Diversité",
+    "Symboliques",
+    `Somme : ${rows[0]?.sommeRange[0] ?? "?"} - ${rows[0]?.sommeRange[1] ?? "?"}`,
+  ];
+  const data = rows.map((r, i) => [
+    `${String(i + 1).padStart(2, "0")}.`,
+    fmtComb(r.comb),
+    r.checks["Pair/Impair"] ? TICK : CROSS,
+    r.checks["Petit/Grand"] ? TICK : CROSS,
+    r.checks["Séries"] ? TICK : CROSS,
+    r.checks["Dizaines"] ? TICK : CROSS,
+    r.checks["Fin identique"] ? TICK : CROSS,
+    r.checks["Diversité finales"] ? TICK : CROSS,
+    r.checks["Symboliques"] ? TICK : CROSS,
+    `${r.checks["Somme"] ? TICK : CROSS} (${String(r.comb.reduce((a, b) => a + b, 0))})`,
+  ]);
+  const widths = headers.map((h, c) => Math.max(h.length, ...data.map((row) => row[c].length)));
+  const sep = "-".repeat(widths.reduce((acc, w, i) => acc + w + (i ? 3 : 0), 0));
+  const line = (cols: string[]) => cols.map((s, i) => padRight(s, widths[i])).join(" | ");
+  let out = "";
+  out += line(headers) + "\n";
+  out += sep + "\n";
+  for (const row of data) out += line(row) + "\n";
+  return out.trimEnd();
+}
 
 function parseBlockText(text: string, numsPerComb: number) {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const block: number[][] = [];
   for (const l of lines) {
-    const nums = l
-      .replace(/[;,]+/g, " ")
-      .split(/\s+/)
-      .map((t) => parseInt(t, 10))
-      .filter((n) => Number.isFinite(n));
-    if (nums.length !== numsPerComb) {
-      throw new Error(`Chaque ligne doit contenir ${numsPerComb} nombres — "${l}"`);
-    }
+    const nums = l.replace(/[;,]+/g, " ").split(/\s+/).map((t) => parseInt(t, 10)).filter(Number.isFinite);
+    if (nums.length !== numsPerComb) throw new Error(`Chaque ligne doit contenir ${numsPerComb} nombres — "${l}"`);
     block.push([...nums].sort((a, b) => a - b));
   }
   return block;
@@ -35,16 +77,9 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
 
   const [blocText, setBlocText] = useState("");
   const [etoileIndex, setEtoileIndex] = useState(cfg.baseCount);
-
-  const [result, setResult] = useState<ApiResponse | string | null>(null);
+  const [ascii, setAscii] = useState<string>("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showRaw, setShowRaw] = useState(false);
-
-  // Nouveaux états pour l’analyse locale
-  const [dupsBase, setDupsBase] = useState<number[] | null>(null);
-  const [starReuse, setStarReuse] = useState<number[] | null>(null);
-  const [starNew, setStarNew] = useState<number[] | null>(null);
 
   const placeholder = useMemo(() => {
     const sample: number[][] =
@@ -59,61 +94,62 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
             [11,20,22,29,30,48,49],
             [11,12,25,28,29,32,39] // étoile
           ]
-        : Array.from({ length: expectedTotal }, () =>
-            Array.from({ length: cfg.numsPerComb }, (_, i) => i + 1)
-          );
+        : Array.from({ length: expectedTotal }, () => Array.from({ length: cfg.numsPerComb }, (_, i) => i + 1));
     return sample.map((row) => row.join(" ")).join("\n");
   }, [loterieId]);
-
-  const isOk = (r: ApiResponse | string | null): r is VerifierBlocSuccess =>
-    !!r && typeof r !== "string" && "ok" in r && r.ok;
 
   const submit = async () => {
     setLoading(true);
     setErr(null);
-    setResult(null);
-    setDupsBase(null);
-    setStarReuse(null);
-    setStarNew(null);
+    setAscii("");
     try {
-      // 1) Parse + validations élémentaires
       const parsed = parseBlockText(blocText, cfg.numsPerComb);
-      if (parsed.length !== expectedTotal) {
-        throw new Error(`Il faut ${expectedTotal} lignes (base ${cfg.baseCount} + 1 étoile).`);
-      }
-      if (etoileIndex < 0 || etoileIndex >= parsed.length) {
-        throw new Error(`etoileIndex doit être entre 0 et ${parsed.length - 1}.`);
-      }
+      if (parsed.length !== expectedTotal) throw new Error(`Il faut ${expectedTotal} lignes (base ${cfg.baseCount} + 1 étoile).`);
+      if (etoileIndex < 0 || etoileIndex >= parsed.length) throw new Error(`etoileIndex doit être entre 0 et ${parsed.length - 1}.`);
 
-      // 2) Analyse locale — DOUblons dans la BASE + réutilisations étoile
+      // Doublons base + réutilisés/nouveaux étoile (analyse locale, comme ton script)
       const baseIdx = parsed.map((_, i) => i).filter((i) => i !== etoileIndex);
       const counts: Record<number, number> = {};
-      for (const i of baseIdx) {
-        for (const n of parsed[i]) counts[n] = (counts[n] ?? 0) + 1;
-      }
-      const dups = Object.keys(counts)
-        .map((x) => parseInt(x, 10))
-        .filter((n) => counts[n] > 1)
-        .sort((a, b) => a - b);
-      setDupsBase(dups);
+      for (const i of baseIdx) for (const n of parsed[i]) counts[n] = (counts[n] ?? 0) + 1;
+      const dups = Object.keys(counts).map(Number).filter((n) => counts[n] > 1).sort((a, b) => a - b);
 
       const starSet = new Set(parsed[etoileIndex]);
       const baseSet = new Set(baseIdx.flatMap((i) => parsed[i]));
       const reused = [...starSet].filter((n) => baseSet.has(n)).sort((a, b) => a - b);
-      const newInStar = [...starSet].filter((n) => !baseSet.has(n)).sort((a, b) => a - b);
-      setStarReuse(reused);
-      setStarNew(newInStar);
+      const nouveau = [...starSet].filter((n) => !baseSet.has(n)).sort((a, b) => a - b);
 
-      // 3) Appel backend — renvoie aussi les CRITÈRES de V dans `details`
+      // Backend pour les critères (une ligne par combinaison)
       const r = await fetch("/api/verifier-bloc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loterie: loterieId, bloc: parsed, etoileIndex }),
         cache: "no-store",
       });
-      const text = await r.text();
-      try { setResult(JSON.parse(text) as ApiResponse); }
-      catch { setResult(text); }
+      const t = await r.text();
+      const parsedResp: ApiResponse = (() => {
+        try { return JSON.parse(t) as ApiResponse; } catch { return { ok: false, error: t || "Réponse invalide" }; }
+      })();
+      if (!parsedResp.ok || !Array.isArray(parsedResp.data.details)) {
+        throw new Error(!parsedResp.ok ? parsedResp.error : "Réponse sans détails");
+      }
+
+      const details = parsedResp.data.details as Array<Record<string, unknown>>;
+      const rows = details.map((obj, i) => {
+        const comb = (obj["Combinaison"] as number[]) ?? parsed[i];
+        return { comb, checks: obj as Record<string, boolean>, sommeRange: cfg.somme };
+      });
+
+      const table = "Bloc 1 :\n" + buildAsciiTable(rows);
+
+      const recap =
+        "\n\n" +
+        (dups.length
+          ? `🚨 Doublons détectés dans les combinaisons de base : [${dups.join(", ")}]\n`
+          : "👍 Aucun doublon détecté dans les combinaisons de base.\n") +
+        `\n🔄 Numéros réutilisés dans la combinaison étoile : [${reused.join(", ")}]\n` +
+        `⚠️  Numéros nouveaux (restants) dans la combinaison étoile : [${nouveau.join(", ")}]`;
+
+      setAscii(table + recap);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -121,36 +157,9 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
     }
   };
 
-  const raw = result === null ? "" : typeof result === "string" ? result : JSON.stringify(result, null, 2);
-
-  // Table lisible des critères V pour chaque combinaison (si renvoyé par le backend)
-  const table = useMemo(() => {
-    if (!isOk(result)) return [];
-    const details = result.data.details;
-    if (!Array.isArray(details)) return [];
-    return details.map((d, idx) => {
-      const obj = d as Record<string, unknown>;
-      const comb = obj["Combinaison"];
-      const row: { idx: number; comb: number[] | null; checks: Array<[string, boolean]> } = {
-        idx,
-        comb:
-          Array.isArray(comb) && comb.every((n) => typeof n === "number")
-            ? (comb as number[])
-            : null,
-        checks: [],
-      };
-      for (const [k, v] of Object.entries(obj)) {
-        if (k === "Combinaison") continue;
-        if (typeof v === "boolean") row.checks.push([k, v]);
-      }
-      return row;
-    });
-  }, [result]);
-
   return (
     <div className="rounded-2xl border p-4 space-y-3">
       <h3 className="font-semibold">Vb — Vérifier couverture de blocs (base + étoile)</h3>
-
       <div className="text-sm text-gray-600">
         Loterie <b>{cfg.name}</b> — {cfg.baseCount} combinaisons de base + 1 étoile.
       </div>
@@ -180,87 +189,15 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
         <button onClick={submit} disabled={loading} className="px-3 py-2 rounded-xl border">
           {loading ? "Vérification..." : "Vérifier"}
         </button>
-        <button
-          onClick={() => setShowRaw((s) => !s)}
-          className="px-3 py-2 rounded-xl border text-xs ml-auto"
-          disabled={result === null}
-        >
-          {showRaw ? "Masquer JSON" : "Voir JSON"}
-        </button>
       </div>
 
       {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
 
-      {/* --- Résumé Doublons base & étoile --- */}
-      {dupsBase !== null && (
-        <div className="rounded-xl border p-3">
-          {dupsBase.length === 0 ? (
-            <div className="text-green-700 font-medium">✅ Aucun doublon dans les combinaisons de base.</div>
-          ) : (
-            <div className="text-red-700 font-medium">
-              ❌ Doublons dans la base : {dupsBase.join(", ")}
-            </div>
-          )}
-          {starReuse !== null && starNew !== null && (
-            <div className="mt-2 text-sm text-gray-700 space-y-1">
-              <div>🔄 Réutilisés par l’étoile : {starReuse.length ? starReuse.join(", ") : "—"}</div>
-              <div>✨ Nouveaux dans l’étoile : {starNew.length ? starNew.join(", ") : "—"}</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* --- Statut global renvoyé par le backend --- */}
-      {isOk(result) && (
-        <div
-          className={`rounded-xl border p-3 ${
-            result.data.valide ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300"
-          }`}
-        >
-          <div className="font-semibold">
-            Statut backend : {result.data.valide ? "VALIDE ✅" : "INVALIDE ❌"}
-          </div>
-          {!!result.data.erreurs?.length && (
-            <ul className="mt-2 list-disc pl-5 text-sm text-red-700">
-              {result.data.erreurs.map((e, i) => (
-                <li key={i}>{e}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {/* --- Critères de V, par combinaison --- */}
-      {isOk(result) && table.length > 0 && (
-        <div className="space-y-2">
-          {table.map((r) => (
-            <details key={r.idx} className="rounded-lg border p-2">
-              <summary className="cursor-pointer text-sm">
-                Combinaison {r.idx + 1}{" "}
-                {r.comb ? "• " + r.comb.map((n) => n.toString().padStart(2, "0")).join(" ") : ""}
-              </summary>
-              <ul className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1 text-xs">
-                {r.checks.map(([k, v]) => (
-                  <li
-                    key={k}
-                    className={`rounded px-2 py-1 border inline-flex items-center gap-2 ${
-                      v ? "bg-green-50 border-green-300 text-green-700" : "bg-red-50 border-red-300 text-red-700"
-                    }`}
-                  >
-                    <span>{v ? "✔︎" : "✘"}</span>
-                    <span>{k}</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ))}
-        </div>
-      )}
-
-      {showRaw && result !== null && (
-        <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">{raw}</pre>
+      {ascii && (
+        <pre className="font-mono text-sm bg-gray-50 border rounded p-3 whitespace-pre overflow-x-auto">
+{ascii}
+        </pre>
       )}
     </div>
   );
 }
-
