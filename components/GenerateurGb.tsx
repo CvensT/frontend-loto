@@ -1,9 +1,14 @@
+"use client";
+
 import { useState } from "react";
 
-export default function GenerateurGb({ loterieId }: { loterieId: string });
+type ApiSuccess = { ok: true; data: any; [k: string]: any };
+type ApiError = { ok: false; error: string; [k: string]: any };
+type ApiResponse = ApiSuccess | ApiError;
+
+export default function GenerateurGb({ loterieId }: { loterieId: string }) {
   const [blocs, setBlocs] = useState(1);
-  
-  const [result, setResult] = useState<string | object | null>(null);
+  const [result, setResult] = useState<ApiResponse | string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -20,13 +25,12 @@ export default function GenerateurGb({ loterieId }: { loterieId: string });
       });
       const text = await r.text();
       try {
-        setResult(JSON.parse(text) as object);
+        setResult(JSON.parse(text) as ApiResponse);
       } catch {
         setResult(text); // texte brut si pas du JSON
       }
     } catch (e: unknown) {
-      if (e instanceof Error) setErr(e.message);
-      else setErr(String(e));
+      setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -38,6 +42,7 @@ export default function GenerateurGb({ loterieId }: { loterieId: string });
   return (
     <div className="rounded-2xl border p-4 space-y-3">
       <h3 className="font-semibold">Gb — Génération par blocs couvrants (+ étoile)</h3>
+
       <div className="flex items-center gap-3">
         <label className="text-sm">Nombre de blocs</label>
         <input
@@ -54,11 +59,11 @@ export default function GenerateurGb({ loterieId }: { loterieId: string });
 
       {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
 
-      {result !== null && (
+      {result !== null ? (
         <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">
           {rendered}
         </pre>
-      )}
+      ) : null}
     </div>
   );
 }
