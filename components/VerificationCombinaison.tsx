@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export default function VerificationCombinaison({ loterieId }: { loterieId: string }) {
   const [saisie, setSaisie] = useState("");
-  const [result, setResult] = useState<unknown>(null);
+  const [result, setResult] = useState<string | object | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +26,7 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
       });
       const text = await r.text();
       try {
-        setResult(JSON.parse(text));
+        setResult(JSON.parse(text) as object);
       } catch {
         setResult(text);
       }
@@ -37,6 +37,8 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
       setLoading(false);
     }
   };
+
+  const rendered = typeof result === "string" ? result : JSON.stringify(result, null, 2);
 
   return (
     <div className="rounded-2xl border p-4 space-y-3">
@@ -52,10 +54,12 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
           {loading ? "Vérification..." : "Vérifier"}
         </button>
       </div>
+
       {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
+
       {result !== null && (
         <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">
-          {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
+          {rendered}
         </pre>
       )}
     </div>
