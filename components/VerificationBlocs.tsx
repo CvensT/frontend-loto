@@ -76,7 +76,7 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
   const expectedTotal = cfg.baseCount + 1;
 
   const [blocText, setBlocText] = useState("");
-  const [etoileIndex, setEtoileIndex] = useState(cfg.baseCount);
+  const [etoileIndex, setEtoileIndex] = useState<number>(cfg.baseCount);
   const [ascii, setAscii] = useState<string>("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
