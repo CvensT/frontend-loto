@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 
+type Props = {
+  loterieId: "1" | "2" | "3";
+};
+
 type ApiOk = {
   ok: true;
   data: {
-    existe: boolean;                 // true si trouvée dans l'historique
-    occurrences?: number;            // nb de fois (optionnel)
-    premieres_dates?: string[];      // ex: ["2024-01-12", ...] (optionnel)
+    existe: boolean;
+    occurrences?: number;
+    premieres_dates?: string[];
   };
 };
 
@@ -19,24 +23,16 @@ type ApiErr = {
 
 type ApiResponse = ApiOk | ApiErr;
 
-const LOTERIES = [
-  { id: "1", nom: "Grande Vie" },
-  { id: "2", nom: "Lotto Max" },
-  { id: "3", nom: "Lotto 6/49" },
-];
-
 function parseNumbers(input: string) {
-  // Accepte séparateurs : espace, virgule, point-virgule, slash
   return input
     .split(/[\s,;\/]+/)
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((s) => Number(s))
+    .map(Number)
     .filter((n) => Number.isInteger(n));
 }
 
-export default function VerificationCombinaison() {
-  const [loterieId, setLoterieId] = useState("2"); // par défaut: Lotto Max
+export default function VerificationCombinaison({ loterieId }: Props) {
   const [saisie, setSaisie] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -59,20 +55,15 @@ export default function VerificationCombinaison() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           loterie: loterieId,
-          combinaison: nums, // ex.: [8,10,16,19,33,46,48]
+          combinaison: nums,
         }),
       });
 
       const json: ApiResponse = await r.json();
       setResult(json);
-     } catch (e) {
-      if (e instanceof Error) {
-        setErr(e.message);
-      } else {
-        setErr(String(e));
-      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
     } finally {
-
       setLoading(false);
     }
   };
@@ -81,38 +72,20 @@ export default function VerificationCombinaison() {
     <div className="rounded-2xl border p-4 space-y-4">
       <div className="text-lg font-semibold">V — Vérifier si une combinaison existe</div>
       <p className="text-sm text-gray-600">
-        Cette vérification <span className="font-medium">ne fait pas</span> de contrôle de critères. Elle répond uniquement à la question :
+        Cette vérification <span className="font-medium">ne fait pas</span> de contrôle de critères.
+        Elle répond uniquement à la question :
         <span className="italic"> “Cette combinaison a-t-elle déjà été tirée ?”</span>
       </p>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <label className="flex items-center gap-2">
-          <span className="w-28 text-sm text-gray-700">Loterie</span>
-          <select
-            className="w-full rounded-xl border px-3 py-2"
-            value={loterieId}
-            onChange={(e) => setLoterieId(e.target.value)}
-          >
-            {LOTERIES.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.nom}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="md:col-span-2">
-          <input
-            className="w-full rounded-xl border px-3 py-2 font-mono"
-            placeholder="Ex.: 8 10 16 19 33 46 48"
-            value={saisie}
-            onChange={(e) => setSaisie(e.target.value)}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Séparateurs acceptés : espace, virgule, point-virgule, slash.
-          </p>
-        </div>
-      </div>
+      <input
+        className="w-full rounded-xl border px-3 py-2 font-mono"
+        placeholder="Ex.: 8 10 16 19 33 46 48"
+        value={saisie}
+        onChange={(e) => setSaisie(e.target.value)}
+      />
+      <p className="text-xs text-gray-500 mt-1">
+        Séparateurs acceptés : espace, virgule, point-virgule, slash.
+      </p>
 
       <div className="flex items-center gap-3">
         <button
