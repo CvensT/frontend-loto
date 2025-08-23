@@ -12,11 +12,10 @@ type ApiResponse = VerifierBlocSuccess | ApiError;
 const CFG = {
   "1": { name: "Grande Vie", numsPerComb: 5, baseCount: 9 },
   "2": { name: "Lotto Max", numsPerComb: 7, baseCount: 7 },
-  "3": { name: "649", numsPerComb: 6, baseCount: 8 },
+  "3": { name: "Lotto 6/49", numsPerComb: 6, baseCount: 8 },
 } as const;
 
 function parseBlockText(text: string, numsPerComb: number) {
-  // Retourne [number[], ...] — ignore les lignes vides
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -33,24 +32,22 @@ function parseBlockText(text: string, numsPerComb: number) {
         `Chaque ligne doit contenir exactement ${numsPerComb} nombres — ligne invalide: "${l}"`
       );
     }
-    // Tri pour cohérence avec la validation côté backend
     block.push([...nums].sort((a, b) => a - b));
   }
   return block;
 }
 
 export default function VerificationBlocs({ loterieId }: { loterieId: string }) {
-  const cfg = CFG[loterieId as keyof typeof CFG] ?? CFG["2"]; // défaut Lotto Max
+  const cfg = CFG[(loterieId as keyof typeof CFG) ?? "2"];
   const expectedTotal = cfg.baseCount + 1;
 
   const [blocText, setBlocText] = useState<string>("");
-  const [etoileIndex, setEtoileIndex] = useState<number>(cfg.baseCount); // par défaut: dernière ligne
+  const [etoileIndex, setEtoileIndex] = useState<number>(cfg.baseCount);
   const [result, setResult] = useState<ApiResponse | string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const placeholder = useMemo(() => {
-    // Un exemple minimal valide pour guider l’utilisateur
     const sample: number[][] =
       loterieId === "2"
         ? [
@@ -77,7 +74,6 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
             [1, 12, 23, 34, 45], // étoile
           ]
         : [
-            // 6/49
             [2, 8, 16, 31, 38, 41],
             [3, 9, 15, 22, 33, 40],
             [4, 10, 17, 26, 34, 42],
@@ -110,11 +106,7 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
       const r = await fetch("/api/verifier-bloc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          loterie: loterieId,
-          bloc: parsed,
-          etoileIndex,
-        }),
+        body: JSON.stringify({ loterie: loterieId, bloc: parsed, etoileIndex }),
         cache: "no-store",
       });
 
@@ -136,20 +128,14 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
 
   return (
     <div className="rounded-2xl border p-4 space-y-3">
-      <h3 className="font-semibold">
-        Vb — Vérifier couverture de blocs (base + étoile)
-      </h3>
+      <h3 className="font-semibold">Vb — Vérifier couverture de blocs (base + étoile)</h3>
 
       <div className="text-sm text-gray-600">
-        Loterie&nbsp;
-        <b>{cfg.name}</b> — {cfg.baseCount} combinaisons de base + 1 étoile.
+        Loterie <b>{cfg.name}</b> — {cfg.baseCount} combinaisons de base + 1 étoile.
         <br />
-        Collez {expectedTotal} lignes ci-dessous, <i>une ligne = une combinaison</i>{" "}
-        ({cfg.numsPerComb} nombres séparés par des espaces ou des virgules).
+        Collez {expectedTotal} lignes, <i>une ligne = une combinaison</i> ({cfg.numsPerComb} nombres).
         <br />
-        <span className="opacity-80">
-          Par défaut, l’étoile est la dernière ligne (index {cfg.baseCount}).
-        </span>
+        <span className="opacity-80">Par défaut, l’étoile est la dernière ligne (index {cfg.baseCount}).</span>
       </div>
 
       <textarea
@@ -167,31 +153,23 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
           min={0}
           max={expectedTotal - 1}
           value={etoileIndex}
-          onChange={(e) =>
-            setEtoileIndex(
-              Math.max(0, Math.min(expectedTotal - 1, parseInt(e.target.value || String(cfg.baseCount), 10)))
-            )
-          }
+          onChange={(e) => {
+            const v = parseInt(e.target.value || String(cfg.baseCount), 10);
+            setEtoileIndex(Math.max(0, Math.min(expectedTotal - 1, Number.isFinite(v) ? v : cfg.baseCount)));
+          }}
           className="border rounded px-2 py-1 w-24"
         />
-        <button
-          onClick={submit}
-          disabled={loading}
-          className="px-3 py-2 rounded-xl border"
-        >
+        <button onClick={submit} disabled={loading} className="px-3 py-2 rounded-xl border">
           {loading ? "Vérification..." : "Vérifier"}
         </button>
       </div>
 
-      {err && (
-        <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>
-      )}
+      {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
 
       {result !== null ? (
-        <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">
-          {rendered}
-        </pre>
+        <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">{rendered}</pre>
       ) : null}
     </div>
   );
 }
+
