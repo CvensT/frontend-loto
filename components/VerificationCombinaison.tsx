@@ -65,8 +65,12 @@ export default function VerificationCombinaison() {
 
       const json: ApiResponse = await r.json();
       setResult(json);
-    } catch (e: any) {
-      setErr(e?.message ?? "Erreur inconnue.");
+    } catch (e) {
+      if (e instanceof Error) {
+        setErr(e.message);
+      } else {
+        setErr(String(e));
+      }
     } finally {
       setLoading(false);
     }
@@ -159,4 +163,3 @@ export default function VerificationCombinaison() {
     </div>
   );
 }
-
