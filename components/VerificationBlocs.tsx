@@ -96,7 +96,7 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
           ]
         : Array.from({ length: expectedTotal }, () => Array.from({ length: cfg.numsPerComb }, (_, i) => i + 1));
     return sample.map((row) => row.join(" ")).join("\n");
-  }, [loterieId]);
+  }, [loterieId, cfg.numsPerComb, baseCount]);
 
   const submit = async () => {
     setLoading(true);
