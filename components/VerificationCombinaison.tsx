@@ -1,122 +1,162 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
-type ApiSuccess = { ok: true; data: { existe: boolean } };
-type ApiError   = { ok: false; error: string };
-type ApiResp    = ApiSuccess | ApiError;
+type ApiOk = {
+  ok: true;
+  data: {
+    existe: boolean;                 // true si trouvée dans l'historique
+    occurrences?: number;            // nb de fois (optionnel)
+    premieres_dates?: string[];      // ex: ["2024-01-12", ...] (optionnel)
+  };
+};
 
-const CFG = {
-  "1": { name: "Grande Vie", numsPerComb: 5, min: 1, max: 49 },
-  "2": { name: "Lotto Max",  numsPerComb: 7, min: 1, max: 50 },
-  "3": { name: "Lotto 6/49", numsPerComb: 6, min: 1, max: 49 },
-} as const;
+type ApiErr = {
+  ok: false;
+  error: string;
+  [k: string]: unknown;
+};
 
-function fmtComb(nums: number[]) { return nums.map(n => n.toString().padStart(2,"0")).join(" "); }
-function padRight(s: string, w: number) { return s + " ".repeat(Math.max(0, w - s.length)); }
-function buildTable(rows: Array<{ no: string; comb: string; statut: string }>) {
-  const headers = ["No","Combinaison","Statut"];
-  const data = rows.map(r => [r.no, r.comb, r.statut]);
-  const widths = headers.map((h,c)=>Math.max(h.length, ...data.map(row=>row[c].length)));
-  const sep = "-".repeat(widths.reduce((a,w,i)=>a+w+(i?3:0),0));
-  const line = (cols: string[]) => cols.map((s,i)=>padRight(s,widths[i])).join(" | ");
-  return [line(headers), sep, ...data.map(line)].join("\n");
+type ApiResponse = ApiOk | ApiErr;
+
+const LOTERIES = [
+  { id: "1", nom: "Grande Vie" },
+  { id: "2", nom: "Lotto Max" },
+  { id: "3", nom: "Lotto 6/49" },
+];
+
+function parseNumbers(input: string) {
+  // Accepte séparateurs : espace, virgule, point-virgule, slash
+  return input
+    .split(/[\s,;\/]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => Number(s))
+    .filter((n) => Number.isInteger(n));
 }
-function parseLines(text: string, expected: number, min: number, max: number): number[][] {
-  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  if (!lines.length) throw new Error("Entrez au moins une combinaison.");
-  if (lines.length > 10) throw new Error("Maximum 10 lignes.");
-  return lines.map(l=>{
-    const nums = l.replace(/[;,]+/g," ").split(/\s+/).map(t=>parseInt(t,10)).filter(Number.isFinite);
-    if (nums.length !== expected) throw new Error(`"${l}" → ${expected} nombres requis.`);
-    if (new Set(nums).size !== nums.length) throw new Error(`"${l}" → pas de doublons.`);
-    const oob = nums.filter(n => n<min || n>max);
-    if (oob.length) throw new Error(`"${l}" → hors plage [${min}–${max}] : ${oob.join(", ")}`);
-    return [...nums].sort((a,b)=>a-b);
-  });
-}
 
-export default function VerificationCombinaison({ loterieId }: { loterieId: string }) {
-  const cfg = CFG[(loterieId as keyof typeof CFG) ?? "2"];
-  const [text, setText] = useState("");
-  const [ascii, setAscii] = useState<string>("");
-  const [err, setErr] = useState<string | null>(null);
+export default function VerificationCombinaison() {
+  const [loterieId, setLoterieId] = useState("2"); // par défaut: Lotto Max
+  const [saisie, setSaisie] = useState("");
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<ApiResponse | null>(null);
 
-  const aide = useMemo(
-    () => `Collez 1 à 10 lignes — ${cfg.numsPerComb} nombres distincts entre ${cfg.min} et ${cfg.max}.`,
-    [cfg]
-  );
+  const envoyer = async () => {
+    setLoading(true);
+    setErr(null);
+    setResult(null);
 
-  const submit = async () => {
-    setLoading(true); setErr(null); setAscii("");
     try {
-      const combos = parseLines(text, cfg.numsPerComb, cfg.min, cfg.max);
-      const rows: Array<{ no: string; comb: string; statut: string }> = [];
-      let i = 1;
+      const nums = parseNumbers(saisie);
 
-      for (const comb of combos) {
-        const r  = await fetch("/api/verifier", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ loterie: loterieId, combinaison: comb }),
-          cache: "no-store",
-        });
-        const t  = await r.text();
-        let existe: boolean | null = null;
-
-        try {
-          const parsed: ApiResp = JSON.parse(t);
-          if (parsed.ok) existe = !!parsed.data.existe;
-          else throw new Error(parsed.error);
-        } catch {
-          if (t.trim().toLowerCase() === "true") existe = true;
-          else if (t.trim().toLowerCase() === "false") existe = false;
-          else throw new Error(t || "Réponse invalide du backend");
-        }
-
-        rows.push({ no: `${String(i++).padStart(2,"0")}.`, comb: fmtComb(comb), statut: existe ? "déjà tirée" : "nouvelle combinaison" });
+      if (nums.length === 0) {
+        throw new Error("Entre une combinaison (ex.: 8 10 16 19 33 46 48)");
       }
 
-      setAscii("Bloc 1 :\n" + buildTable(rows));
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : String(e));
+      const r = await fetch("/api/verifier", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loterie: loterieId,
+          combinaison: nums, // ex.: [8,10,16,19,33,46,48]
+        }),
+      });
+
+      const json: ApiResponse = await r.json();
+      setResult(json);
+    } catch (e: any) {
+      setErr(e?.message ?? "Erreur inconnue.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-          </div>
+    <div className="rounded-2xl border p-4 space-y-4">
+      <div className="text-lg font-semibold">V — Vérifier si une combinaison existe</div>
+      <p className="text-sm text-gray-600">
+        Cette vérification <span className="font-medium">ne fait pas</span> de contrôle de critères. Elle répond uniquement à la question :
+        <span className="italic"> “Cette combinaison a-t-elle déjà été tirée ?”</span>
+      </p>
 
-      {err && (
-        <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>
-      )}
-
-      {result !== null && (
-        result.ok ? (
-          <div className="mt-4 space-y-3">
-            {result.data.map((item, i) => (
-              <div
-                key={`${item.bloc}-${i}`}
-                className="rounded-xl border p-3 text-sm flex items-center justify-between"
-              >
-                <div className="font-medium">Bloc {item.bloc}</div>
-                <div className="font-mono tracking-wide">
-                  {item.combinaison.map((n: number) => n.toString().padStart(2, "0")).join(" ")}
-                </div>
-                {item.etoile && <span className="text-yellow-600">★</span>}
-              </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <label className="flex items-center gap-2">
+          <span className="w-28 text-sm text-gray-700">Loterie</span>
+          <select
+            className="w-full rounded-xl border px-3 py-2"
+            value={loterieId}
+            onChange={(e) => setLoterieId(e.target.value)}
+          >
+            {LOTERIES.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.nom}
+              </option>
             ))}
+          </select>
+        </label>
+
+        <div className="md:col-span-2">
+          <input
+            className="w-full rounded-xl border px-3 py-2 font-mono"
+            placeholder="Ex.: 8 10 16 19 33 46 48"
+            value={saisie}
+            onChange={(e) => setSaisie(e.target.value)}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Séparateurs acceptés : espace, virgule, point-virgule, slash.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={envoyer}
+          disabled={loading}
+          className="rounded-xl px-4 py-2 border hover:bg-gray-50 disabled:opacity-60"
+        >
+          {loading ? "Vérification..." : "Vérifier"}
+        </button>
+        <button
+          onClick={() => {
+            setSaisie("");
+            setResult(null);
+            setErr(null);
+          }}
+          className="rounded-xl px-4 py-2 border hover:bg-gray-50"
+        >
+          Réinitialiser
+        </button>
+      </div>
+
+      {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
+
+      {result !== null &&
+        (result.ok ? (
+          <div className="rounded-xl border p-3">
+            <div className="text-sm">
+              Statut :{" "}
+              {result.data.existe ? (
+                <span className="text-green-700 font-semibold">DÉJÀ TIRÉE</span>
+              ) : (
+                <span className="text-gray-700 font-semibold">AUCUNE OCCURRENCE</span>
+              )}
+            </div>
+            {result.data.occurrences != null && (
+              <div className="text-sm">Occurrences : {result.data.occurrences}</div>
+            )}
+            {result.data.premieres_dates?.length ? (
+              <div className="text-sm">
+                Dates (extrait) : {result.data.premieres_dates.slice(0, 5).join(", ")}
+              </div>
+            ) : null}
           </div>
         ) : (
           <pre className="text-orange-700 text-sm whitespace-pre-wrap">
             {result.error ?? "Réponse invalide."}
           </pre>
-        )
-      )}
+        ))}
     </div>
   );
 }
 
-export default VerificationBlocs;
