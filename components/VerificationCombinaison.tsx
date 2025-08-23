@@ -87,27 +87,36 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
   };
 
   return (
-    <div className="rounded-2xl border p-4 space-y-3">
-      <h3 className="font-semibold">V — Vérifier si combinaison existe</h3>
-      <div className="text-sm text-gray-600">Loterie <b>{cfg.name}</b>. {aide}</div>
+          </div>
 
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={Math.max(3, Math.min(10, text.split(/\n/).length || 3))}
-        className="w-full border rounded p-2 font-mono text-sm"
-        placeholder={"ex. 1 8 14 20 27 38 45"}
-      />
-      <button onClick={submit} disabled={loading} className="px-3 py-2 rounded-xl border">
-        {loading ? "Vérification..." : "Vérifier"}
-      </button>
+      {err && (
+        <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>
+      )}
 
-      {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
-      {ascii && (
-        <pre className="font-mono text-sm bg-gray-50 border rounded p-3 whitespace-pre overflow-x-auto">
-{ascii}
-        </pre>
+      {result !== null && (
+        result.ok ? (
+          <div className="mt-4 space-y-3">
+            {result.data.map((item, i) => (
+              <div
+                key={`${item.bloc}-${i}`}
+                className="rounded-xl border p-3 text-sm flex items-center justify-between"
+              >
+                <div className="font-medium">Bloc {item.bloc}</div>
+                <div className="font-mono tracking-wide">
+                  {item.combinaison.map((n: number) => n.toString().padStart(2, "0")).join(" ")}
+                </div>
+                {item.etoile && <span className="text-yellow-600">★</span>}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <pre className="text-orange-700 text-sm whitespace-pre-wrap">
+            {result.error ?? "Réponse invalide."}
+          </pre>
+        )
       )}
     </div>
   );
 }
+
+export default VerificationBlocs;
