@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       : { loterie: "2", mode: "Gb", blocs: 1 };
 
     const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), 15000); // 15s timeout
+    const t = setTimeout(() => ac.abort(), 15_000); // 15s timeout
 
     const r = await fetch(`${base}/api/generer`, {
       method: "POST",
@@ -43,10 +43,12 @@ export async function POST(req: Request) {
       });
     }
   } catch (e: unknown) {
-  const msg =
-    e instanceof Error
-      ? (e.name === "AbortError" ? "Timeout backend" : e.message)
-      : "Erreur inconnue";
-  return NextResponse.json({ ok: false, error: msg }, { status: 502 });
-}
+    const msg =
+      e instanceof Error
+        ? e.name === "AbortError"
+          ? "Timeout backend"
+          : e.message
+        : "Erreur inconnue";
+    return NextResponse.json({ ok: false, error: msg }, { status: 502 });
+  }
 }
