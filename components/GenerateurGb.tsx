@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-export default function GenerateurGb({ loterieId }: { loterieId: string }) {
+export default function GenerateurGb({ loterieId }: { loterieId: string });
   const [blocs, setBlocs] = useState(1);
-  // ⬇️ IMPORTANT: plus de "unknown"; on utilise string | object | null
+  
   const [result, setResult] = useState<string | object | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
