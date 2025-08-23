@@ -70,17 +70,23 @@ function parseBlockText(text: string, numsPerComb: number) {
   }
   return block;
 }
+
 export default function VerificationBlocs({ loterieId }: { loterieId: string }) {
   const cfg = CFG[(loterieId as keyof typeof CFG) ?? "2"];
 
-  // élargir en number pour éviter l’union 7|8|9
+  // éviter l’union littérale 7|8|9 et corriger deps des hooks
   const baseCount = Number(cfg.baseCount);
   const numsPerComb = Number(cfg.numsPerComb);
+  const expectedTotal = baseCount + 1;
 
+  const [blocText, setBlocText] = useState("");
   const [etoileIndex, setEtoileIndex] = useState<number>(baseCount);
+  const [ascii, setAscii] = useState<string>("");
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const placeholder = useMemo(() => {
-    const total = baseCount + 1; // ex-expectedTotal
+    const total = baseCount + 1;
     const sample: number[][] =
       loterieId === "2"
         ? [
@@ -99,32 +105,16 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
     return sample.map((row) => row.join(" ")).join("\n");
   }, [loterieId, baseCount, numsPerComb]);
 
-  const expectedTotal = baseCount + 1; // si tu l'utilises ailleurs
-  // ...
-}
-
-
-  // 🔧 handler input sans union littérale
-  // ...
-  // onChange={(e) => {
-  //   const v = Number.parseInt(e.target.value || String(baseCount), 10);
-  //   const clamped = Number.isFinite(v)
-  //     ? Math.max(0, Math.min(expectedTotal - 1, v))
-  //     : baseCount;
-  //   setEtoileIndex(clamped);
-  // }}
-
-
   const submit = async () => {
     setLoading(true);
     setErr(null);
     setAscii("");
     try {
-      const parsed = parseBlockText(blocText, cfg.numsPerComb);
-      if (parsed.length !== expectedTotal) throw new Error(`Il faut ${expectedTotal} lignes (base ${cfg.baseCount} + 1 étoile).`);
+      const parsed = parseBlockText(blocText, numsPerComb);
+      if (parsed.length !== expectedTotal) throw new Error(`Il faut ${expectedTotal} lignes (base ${baseCount} + 1 étoile).`);
       if (etoileIndex < 0 || etoileIndex >= parsed.length) throw new Error(`etoileIndex doit être entre 0 et ${parsed.length - 1}.`);
 
-      // Doublons base + réutilisés/nouveaux étoile (analyse locale, comme ton script)
+      // Doublons base + réutilisés/nouveaux étoile (analyse locale)
       const baseIdx = parsed.map((_, i) => i).filter((i) => i !== etoileIndex);
       const counts: Record<number, number> = {};
       for (const i of baseIdx) for (const n of parsed[i]) counts[n] = (counts[n] ?? 0) + 1;
@@ -135,7 +125,7 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
       const reused = [...starSet].filter((n) => baseSet.has(n)).sort((a, b) => a - b);
       const nouveau = [...starSet].filter((n) => !baseSet.has(n)).sort((a, b) => a - b);
 
-      // Backend pour les critères (une ligne par combinaison)
+      // Backend : critères par combinaison dans `details`
       const r = await fetch("/api/verifier-bloc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -157,7 +147,6 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
       });
 
       const table = "Bloc 1 :\n" + buildAsciiTable(rows);
-
       const recap =
         "\n\n" +
         (dups.length
@@ -178,7 +167,7 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
     <div className="rounded-2xl border p-4 space-y-3">
       <h3 className="font-semibold">Vb — Vérifier couverture de blocs (base + étoile)</h3>
       <div className="text-sm text-gray-600">
-        Loterie <b>{cfg.name}</b> — {cfg.baseCount} combinaisons de base + 1 étoile.
+        Loterie <b>{cfg.name}</b> — {baseCount} combinaisons de base + 1 étoile.
       </div>
 
       <textarea
@@ -197,8 +186,8 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
           max={expectedTotal - 1}
           value={etoileIndex}
           onChange={(e) => {
-            const v = parseInt(e.target.value || String(cfg.baseCount), 10);
-            const clamped = Number.isFinite(v) ? Math.max(0, Math.min(expectedTotal - 1, v)) : cfg.baseCount;
+            const v = Number.parseInt(e.target.value || String(baseCount), 10);
+            const clamped = Number.isFinite(v) ? Math.max(0, Math.min(expectedTotal - 1, v)) : baseCount;
             setEtoileIndex(clamped);
           }}
           className="border rounded px-2 py-1 w-24"
