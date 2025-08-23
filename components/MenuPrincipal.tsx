@@ -1,60 +1,70 @@
 "use client";
 
-import { useState } from "react";
-
 type Action = "Gb" | "V" | "Vb";
-type Selection = { loterieId: string; action: Action };
 
 const LOTERIES = [
-  { id: "1", label: "Grande Vie" },
-  { id: "2", label: "Lotto Max" },
-  { id: "3", label: "Lotto 6/49" },
-] as const;
+  { id: "1", nom: "Grande Vie" },
+  { id: "2", nom: "Lotto Max" },
+  { id: "3", nom: "Lotto 6/49" },
+];
 
 export default function MenuPrincipal({
-  onChange,
-  defaultLoterieId = "2",
+  loterieId,
+  onChangeLoterie,
+  action,
+  onChangeAction,
 }: {
-  onChange: (s: Selection) => void;
-  defaultLoterieId?: string;
+  loterieId: "1" | "2" | "3";
+  onChangeLoterie: (v: "1" | "2" | "3") => void;
+  action: Action;
+  onChangeAction: (a: Action) => void;
 }) {
-  const [loterieId, setLoterieId] = useState<string>(defaultLoterieId);
-
-  const choisir = (action: Action) => onChange({ loterieId, action });
-
   return (
-    <div className="rounded-2xl border p-4 sm:p-6 space-y-3">
-      <h2 className="text-lg font-semibold">🎯 Menu principal</h2>
+    <section className="mx-auto max-w-lg rounded-2xl border p-4 space-y-3">
+      <div className="text-xl font-semibold">🎯 Menu principal</div>
 
-      <div className="flex items-center gap-3">
-        <label htmlFor="loterie" className="text-sm">Loterie</label>
+      {/* 👇 Sélecteur unique de loterie (plus rien en haut de page) */}
+      <label className="flex items-center gap-2">
+        <span className="w-24 text-sm text-gray-700">Loterie</span>
         <select
-          id="loterie"
-          className="border rounded px-2 py-1"
+          className="w-full rounded-xl border px-3 py-2"
           value={loterieId}
-          onChange={(e) => setLoterieId(e.target.value)}
+          onChange={(e) => onChangeLoterie(e.target.value as "1" | "2" | "3")}
         >
           {LOTERIES.map((l) => (
-            <option key={l.id} value={l.id}>{l.label}</option>
+            <option key={l.id} value={l.id}>{l.nom}</option>
           ))}
         </select>
-      </div>
+      </label>
 
-      <div className="text-sm leading-relaxed">
-        <div>(Gb) Génération par blocs couvrants (+ étoile)</div>
-        <div>(V)  Vérifier si combinaison existe</div>
-        <div>(Vb) Vérifier couverture de blocs (format forcé base+étoile)</div>
-      </div>
-
-      <div className="pt-2 flex gap-2">
-        <button onClick={() => choisir("Gb")} className="px-3 py-2 rounded-xl border">Gb</button>
-        <button onClick={() => choisir("V")}  className="px-3 py-2 rounded-xl border">V</button>
-        <button onClick={() => choisir("Vb")} className="px-3 py-2 rounded-xl border">Vb</button>
-      </div>
-
-      <p className="pt-1 text-sm">
-        👉 Que voulez-vous faire ? <span className="font-mono">[Gb/V/Vb]</span>
+      <p className="text-sm text-gray-600">
+        (Gb) Génération par blocs • (V) Vérifier si combinaison existe • (Vb) Vérifier couverture de blocs
       </p>
-    </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => onChangeAction("Gb")}
+          className={`rounded-full px-4 py-2 border ${action === "Gb" ? "bg-gray-900 text-white" : "hover:bg-gray-50"}`}
+        >
+          Gb
+        </button>
+        <button
+          onClick={() => onChangeAction("V")}
+          className={`rounded-full px-4 py-2 border ${action === "V" ? "bg-gray-900 text-white" : "hover:bg-gray-50"}`}
+        >
+          V
+        </button>
+        <button
+          onClick={() => onChangeAction("Vb")}
+          className={`rounded-full px-4 py-2 border ${action === "Vb" ? "bg-gray-900 text-white" : "hover:bg-gray-50"}`}
+        >
+          Vb
+        </button>
+      </div>
+
+      <div className="text-sm text-gray-700">
+        👉 Action active : <b>{action}</b>
+      </div>
+    </section>
   );
 }
