@@ -1,42 +1,49 @@
 import { NextResponse } from "next/server";
 
-const API = process.env.NEXT_PUBLIC_API_URL;
+export const dynamic = "force-dynamic"; // ou: export const revalidate = 0;
+
+const API = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL;
+
+function ensureApi(): string {
+  if (!API) throw new Error("BACKEND_API_URL (ou NEXT_PUBLIC_API_URL) manquante");
+  return API.replace(/\/+$/, ""); // retire slash final
+}
 
 export async function GET() {
   return NextResponse.json({ ok: true, from: "Next.js /api/generer" });
 }
 
 export async function POST(req: Request) {
-  if (!API) {
-    return NextResponse.json({ ok: false, error: "NEXT_PUBLIC_API_URL manquante" }, { status: 500 });
-  }
-
   try {
-    const payload = await req.json().catch(() => ({}));
-    const body = Object.keys(payload).length ? payload : { loterie: "2", mode: "Gb", blocs: 1 };
+    const base = ensureApi();
 
-    const r = await fetch(`${API}/api/generer`, {
+    const payload = await req.json().catch(() => ({}));
+    const body = Object.keys(payload).length
+      ? payload
+      : { loterie: "2", mode: "Gb", blocs: 1 };
+
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 15000); // 15s timeout
+
+    const r = await fetch(`${base}/api/generer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       cache: "no-store",
-    });
+      signal: ac.signal,
+    }).finally(() => clearTimeout(t));
 
-    const data = await r.text();
-
+    const txt = await r.text();
     try {
-      return NextResponse.json(JSON.parse(data), { status: r.status });
+      return NextResponse.json(JSON.parse(txt), { status: r.status });
     } catch {
-      return new NextResponse(data, {
+      return new NextResponse(txt, {
         status: r.status,
         headers: { "Content-Type": r.headers.get("Content-Type") || "text/plain" },
       });
     }
-  } catch (e: unknown) {
-    if (e instanceof Error) {
-      return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
-    }
-    return NextResponse.json({ ok: false, error: "Erreur inconnue" }, { status: 500 });
+  } catch (e: any) {
+    const msg = e?.name === "AbortError" ? "Timeout backend" : e?.message || "Erreur inconnue";
+    return NextResponse.json({ ok: false, error: msg }, { status: 502 });
   }
 }
-
