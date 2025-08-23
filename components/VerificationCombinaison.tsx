@@ -4,14 +4,17 @@ import { useMemo, useState } from "react";
 
 type ApiSuccess = {
   ok: true;
-  data: { existe: boolean; criteres?: Record<string, unknown> };
+  data: {
+    existe: boolean;
+    criteres?: Record<string, unknown>;
+  };
 };
 type ApiError = { ok: false; error: string; [k: string]: unknown };
 type ApiResponse = ApiSuccess | ApiError;
 
 const CFG = {
   "1": { name: "Grande Vie", numsPerComb: 5, min: 1, max: 49, placeholder: "1 9 17 25 33" },
-  "2": { name: "Lotto Max",  numsPerComb: 7, min: 1, max: 50, placeholder: "1 8 14 20 27 38 45" },
+  "2": { name: "Lotto Max", numsPerComb: 7, min: 1, max: 50, placeholder: "1 8 14 20 27 38 45" },
   "3": { name: "Lotto 6/49", numsPerComb: 6, min: 1, max: 49, placeholder: "2 8 16 31 38 41" },
 } as const;
 
@@ -27,8 +30,7 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
   const [loading, setLoading] = useState(false);
 
   const aide = useMemo(
-    () =>
-      `Entrez ${cfg.numsPerComb} nombres distincts entre ${cfg.min} et ${cfg.max} (ex: ${cfg.placeholder}).`,
+    () => `Entrez ${cfg.numsPerComb} nombres distincts entre ${cfg.min} et ${cfg.max} (ex: ${cfg.placeholder}).`,
     [cfg]
   );
 
@@ -40,26 +42,17 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
       .map((x) => parseInt(x, 10))
       .filter((n) => Number.isFinite(n));
 
-    // Longueur exacte
     if (nums.length !== cfg.numsPerComb) {
-      throw new Error(
-        `Il faut exactement ${cfg.numsPerComb} nombres. Vous en avez fourni ${nums.length}.`
-      );
+      throw new Error(`Il faut exactement ${cfg.numsPerComb} nombres. Vous en avez fourni ${nums.length}.`);
     }
-    // Doublons
     const uniq = new Set(nums);
     if (uniq.size !== nums.length) {
       throw new Error("Aucun doublon autorisé dans la combinaison.");
     }
-    // Plage
     const horsPlage = nums.filter((n) => n < cfg.min || n > cfg.max);
     if (horsPlage.length) {
-      throw new Error(
-        `Valeurs hors plage [${cfg.min}–${cfg.max}] : ${horsPlage.join(", ")}`
-      );
+      throw new Error(`Valeurs hors plage [${cfg.min}–${cfg.max}] : ${horsPlage.join(", ")}`);
     }
-
-    // Trie pour cohérence avec la comparaison backend (historique trié)
     return [...nums].sort((a, b) => a - b);
   };
 
@@ -81,7 +74,7 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
       try {
         setResult(JSON.parse(text) as ApiResponse);
       } catch {
-        setResult(text); // si backend renvoie du texte brut
+        setResult(text);
       }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -90,21 +83,20 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
     }
   };
 
-  // Petit rendu "friendly" si on a un succès structuré
   const renderSummary = () => {
-    if (!result || typeof result === "string") return null;
-    if (!("ok" in result)) return null;
-    if (!result.ok) return null;
+    if (!result || typeof result === "string" || !("ok" in result) || !result.ok) return null;
 
-    const comb =
-      result.data?.criteres?.Combinaison && Array.isArray(result.data.criteres.Combinaison)
-        ? (result.data.criteres.Combinaison as number[])
-        : null;
+    const crt = result.data?.criteres;
+    let comb: number[] | null = null;
+    const candidate = crt && (crt as Record<string, unknown>)["Combinaison"];
+    if (Array.isArray(candidate) && candidate.every((n) => typeof n === "number")) {
+      comb = candidate as number[];
+    }
 
     return (
       <div className="text-sm">
         <div className="font-medium">
-          {comb ? `Combinaison ${fmtComb(comb)} :` : "Combinaison :"}{" "}
+          {comb ? `Combinaison ${fmtComb(comb)} : ` : "Combinaison : "}
           {result.data.existe ? (
             <span className="text-red-600 font-semibold">déjà tirée (historique)</span>
           ) : (
@@ -116,18 +108,14 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
   };
 
   const renderCriteres = () => {
-    if (!result || typeof result === "string") return null;
-    if (!result.ok) return null;
+    if (!result || typeof result === "string" || !("ok" in result) || !result.ok) return null;
     const crt = result.data?.criteres;
     if (!crt || typeof crt !== "object") return null;
 
-    // On affiche les booléens clés de ton backend
-    const rows: Array<[string, boolean | string]> = [];
+    const rows: Array<[string, boolean]> = [];
     for (const [k, v] of Object.entries(crt)) {
       if (k === "Combinaison") continue;
-      if (typeof v === "boolean") {
-        rows.push([k, v]);
-      }
+      if (typeof v === "boolean") rows.push([k, v]);
     }
     if (!rows.length) return null;
 
@@ -148,11 +136,7 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
   const renderRaw = () => {
     if (result === null) return null;
     const rendered = typeof result === "string" ? result : JSON.stringify(result, null, 2);
-    return (
-      <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded mt-2">
-        {rendered}
-      </pre>
-    );
+    return <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded mt-2">{rendered}</pre>;
   };
 
   return (
