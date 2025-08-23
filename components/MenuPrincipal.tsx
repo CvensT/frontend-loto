@@ -1,6 +1,13 @@
 "use client";
 
-type Action = "Gb" | "V" | "Vb";
+import { useState, useEffect } from "react";
+
+type Props = {
+  loterieId: string;
+  onChangeLoterie: (id: "1" | "2" | "3") => void;
+  action: "Gb" | "V" | "Vb";
+  onChangeAction: (a: "Gb" | "V" | "Vb") => void;
+};
 
 const LOTERIES = [
   { id: "1", nom: "Grande Vie" },
@@ -8,63 +15,54 @@ const LOTERIES = [
   { id: "3", nom: "Lotto 6/49" },
 ];
 
-export default function MenuPrincipal({
-  loterieId,
-  onChangeLoterie,
-  action,
-  onChangeAction,
-}: {
-  loterieId: "1" | "2" | "3";
-  onChangeLoterie: (v: "1" | "2" | "3") => void;
-  action: Action;
-  onChangeAction: (a: Action) => void;
-}) {
-  return (
-    <section className="mx-auto max-w-lg rounded-2xl border p-4 space-y-3">
-      <div className="text-xl font-semibold">🎯 Menu principal</div>
+export default function MenuPrincipal({ loterieId, onChangeLoterie, action, onChangeAction }: Props) {
+  const [localeLoterie, setLocaleLoterie] = useState(loterieId);
 
-      {/* 👇 Sélecteur unique de loterie (plus rien en haut de page) */}
+  useEffect(() => {
+    onChangeLoterie(localeLoterie as "1" | "2" | "3");
+  }, [localeLoterie]);
+
+  return (
+    <div className="rounded-xl border p-4 max-w-md w-full space-y-3">
+      <div className="text-lg font-semibold">🎯 Menu principal</div>
+
       <label className="flex items-center gap-2">
-        <span className="w-24 text-sm text-gray-700">Loterie</span>
+        <span className="w-16 text-sm text-gray-700">Loterie</span>
         <select
-          className="w-full rounded-xl border px-3 py-2"
-          value={loterieId}
-          onChange={(e) => onChangeLoterie(e.target.value as "1" | "2" | "3")}
+          className="w-full rounded-xl border px-3 py-1"
+          value={localeLoterie}
+          onChange={(e) => setLocaleLoterie(e.target.value)}
         >
           {LOTERIES.map((l) => (
-            <option key={l.id} value={l.id}>{l.nom}</option>
+            <option key={l.id} value={l.id}>
+              {l.nom}
+            </option>
           ))}
         </select>
       </label>
 
-      <p className="text-sm text-gray-600">
-        (Gb) Génération par blocs • (V) Vérifier si combinaison existe • (Vb) Vérifier couverture de blocs
-      </p>
-
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-2">
         <button
           onClick={() => onChangeAction("Gb")}
-          className={`rounded-full px-4 py-2 border ${action === "Gb" ? "bg-gray-900 text-white" : "hover:bg-gray-50"}`}
+          className={`rounded-xl border px-3 py-2 hover:bg-gray-50 ${action === "Gb" ? "bg-gray-100 font-semibold" : ""}`}
         >
-          Gb
+          (Gb) Génération par blocs couvrants (+ étoile)
         </button>
         <button
           onClick={() => onChangeAction("V")}
-          className={`rounded-full px-4 py-2 border ${action === "V" ? "bg-gray-900 text-white" : "hover:bg-gray-50"}`}
+          className={`rounded-xl border px-3 py-2 hover:bg-gray-50 ${action === "V" ? "bg-gray-100 font-semibold" : ""}`}
         >
-          V
+          (V) Vérifier si combinaison existe
         </button>
         <button
           onClick={() => onChangeAction("Vb")}
-          className={`rounded-full px-4 py-2 border ${action === "Vb" ? "bg-gray-900 text-white" : "hover:bg-gray-50"}`}
+          className={`rounded-xl border px-3 py-2 hover:bg-gray-50 ${action === "Vb" ? "bg-gray-100 font-semibold" : ""}`}
         >
-          Vb
+          (Vb) Vérifier couverture de blocs (format forcé base+étoile)
         </button>
       </div>
 
-      <div className="text-sm text-gray-700">
-        👉 Action active : <b>{action}</b>
-      </div>
-    </section>
+      <p className="text-sm text-gray-500 pt-2">👉 Que voulez-vous faire ? [ Gb / V / Vb ]</p>
+    </div>
   );
 }
