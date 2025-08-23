@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 export const dynamic = "force-dynamic";
 
 const API = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL;
@@ -12,17 +13,11 @@ export async function POST(req: Request) {
   try {
     const base = ensureApi();
     const payload = await req.json().catch(() => ({}));
-
-    // Valeurs par défaut / validation légère
     const loterie = String(payload.loterie ?? "2");
     const combinaison = Array.isArray(payload.combinaison) ? payload.combinaison : [];
 
-    if (combinaison.length === 0) {
-      return NextResponse.json({ ok: false, error: "combinaison manquante" }, { status: 400 });
-    }
-
     const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), 15000);
+    const t = setTimeout(() => ac.abort(), 15_000);
 
     const r = await fetch(`${base}/api/verifier`, {
       method: "POST",
@@ -41,13 +36,9 @@ export async function POST(req: Request) {
         headers: { "Content-Type": r.headers.get("Content-Type") || "text/plain" },
       });
     }
- } catch (e: unknown) {
+  } catch (e: unknown) {
     const msg =
-      e instanceof Error
-        ? e.name === "AbortError"
-          ? "Timeout backend"
-          : e.message
-        : "Erreur inconnue";
+      e instanceof Error ? (e.name === "AbortError" ? "Timeout backend" : e.message) : "Erreur inconnue";
     return NextResponse.json({ ok: false, error: msg }, { status: 502 });
   }
 }
