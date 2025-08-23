@@ -21,11 +21,9 @@ const CROSS = "✗";
 function fmtComb(nums: number[]) {
   return nums.map((n) => n.toString().padStart(2, "0")).join(" ");
 }
-
 function padRight(s: string, w: number) {
   return s + " ".repeat(Math.max(0, w - s.length));
 }
-
 function buildAsciiTable(rows: Array<{
   comb: number[];
   checks: Record<string, boolean>;
@@ -43,7 +41,6 @@ function buildAsciiTable(rows: Array<{
     "Symboliques",
     `Somme : ${rows[0]?.sommeRange[0] ?? "?"} - ${rows[0]?.sommeRange[1] ?? "?"}`,
   ];
-
   const data = rows.map((r, i) => [
     `${String(i + 1).padStart(2, "0")}.`,
     fmtComb(r.comb),
@@ -56,16 +53,9 @@ function buildAsciiTable(rows: Array<{
     r.checks["Symboliques"] ? TICK : CROSS,
     `${r.checks["Somme"] ? TICK : CROSS} (${String(r.comb.reduce((a, b) => a + b, 0))})`,
   ]);
-
-  // largeurs
-  const widths = headers.map((h, c) =>
-    Math.max(h.length, ...data.map((row) => row[c].length))
-  );
-
+  const widths = headers.map((h, c) => Math.max(h.length, ...data.map((row) => row[c].length)));
   const sep = "-".repeat(widths.reduce((acc, w, i) => acc + w + (i ? 3 : 0), 0));
-  const line = (cols: string[]) =>
-    cols.map((s, i) => padRight(s, widths[i])).join(" | ");
-
+  const line = (cols: string[]) => cols.map((s, i) => padRight(s, widths[i])).join(" | ");
   let out = "";
   out += line(headers) + "\n";
   out += sep + "\n";
@@ -98,7 +88,9 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
 
   const aide = useMemo(
     () =>
-      `Collez 1 à 10 lignes — ${cfg.numsPerComb} nombres distincts entre ${cfg.min} et ${cfg.max} (ex: ${cfg.name === "Lotto Max" ? "1 8 14 20 27 38 45" : cfg.name === "Grande Vie" ? "1 9 17 25 33" : "2 8 16 31 38 41"}).`,
+      `Collez 1 à 10 lignes — ${cfg.numsPerComb} nombres distincts entre ${cfg.min} et ${cfg.max} (ex: ${
+        cfg.name === "Lotto Max" ? "1 8 14 20 27 38 45" : cfg.name === "Grande Vie" ? "1 9 17 25 33" : "2 8 16 31 38 41"
+      }).`,
     [cfg]
   );
 
