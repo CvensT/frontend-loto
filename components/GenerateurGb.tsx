@@ -1,9 +1,8 @@
-"use client";
-
 import { useState } from "react";
 
 export default function GenerateurGb({ loterieId }: { loterieId: string }) {
   const [blocs, setBlocs] = useState(1);
+  // ⬇️ IMPORTANT: plus de "unknown"; on utilise string | object | null
   const [result, setResult] = useState<string | object | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -23,7 +22,7 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
       try {
         setResult(JSON.parse(text) as object);
       } catch {
-        setResult(text);
+        setResult(text); // texte brut si pas du JSON
       }
     } catch (e: unknown) {
       if (e instanceof Error) setErr(e.message);
@@ -32,6 +31,9 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
       setLoading(false);
     }
   };
+
+  const rendered =
+    typeof result === "string" ? result : JSON.stringify(result, null, 2);
 
   return (
     <div className="rounded-2xl border p-4 space-y-3">
@@ -49,10 +51,13 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
           {loading ? "Génération..." : "Générer"}
         </button>
       </div>
+
       {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
+
+      {/* ⬇️ IMPORTANT: on garde la garde "!== null" (plus de {result && ...}) */}
       {result !== null && (
         <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">
-          {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
+          {rendered}
         </pre>
       )}
     </div>
