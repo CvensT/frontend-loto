@@ -7,13 +7,21 @@ type GenSuccess = { ok: true; data: GenItem[]; [k: string]: unknown };
 type GenError   = { ok: false; error: string; [k: string]: unknown };
 type ApiResponse = GenSuccess | GenError;
 
-function Chip({ n, star }: { n: number; star?: boolean }) {
+function Chip({
+  n,
+  variant = "base",
+}: {
+  n: number;
+  variant?: "base" | "star-reuse" | "star-new";
+}) {
+  const cls =
+    variant === "star-reuse"
+      ? "bg-red-50 border-red-300 text-red-700"
+      : variant === "star-new"
+      ? "bg-blue-50 border-blue-300 text-blue-700"
+      : "bg-gray-50 border-gray-300 text-gray-800";
   return (
-    <span
-      className={`inline-flex items-center justify-center rounded-md px-2 py-1 text-xs font-medium border
-        ${star ? "bg-yellow-50 border-yellow-300" : "bg-gray-50 border-gray-300"}`}
-      title={star ? "Étoile" : "Base"}
-    >
+    <span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium border ${cls}`}>
       {n.toString().padStart(2, "0")}
     </span>
   );
@@ -24,7 +32,6 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
   const [result, setResult] = useState<ApiResponse | string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showRaw, setShowRaw] = useState(false);
 
   const submit = async () => {
     setLoading(true);
@@ -51,24 +58,19 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
   };
 
   const grouped = useMemo(() => {
-    if (!result || typeof result === "string" || !("ok" in result) || !result.ok) return new Map<number, GenItem[]>();
+    if (!result || typeof result === "string" || !("ok" in result) || !result.ok)
+      return new Map<number, GenItem[]>();
     const map = new Map<number, GenItem[]>();
     for (const it of result.data as GenItem[]) {
       if (!map.has(it.bloc)) map.set(it.bloc, []);
       map.get(it.bloc)!.push(it);
     }
-    // tri : base d’abord, étoile ensuite
     for (const [k, arr] of map) {
-      arr.sort((a, b) => Number(a.etoile) - Number(b.etoile));
+      arr.sort((a, b) => Number(a.etoile) - Number(b.etoile)); // bases avant étoile
       map.set(k, arr);
     }
     return map;
   }, [result]);
-
-  const raw = useMemo(
-    () => (result === null ? "" : typeof result === "string" ? result : JSON.stringify(result, null, 2)),
-    [result]
-  );
 
   return (
     <div className="rounded-2xl border p-4 space-y-3">
@@ -86,28 +88,23 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
         <button onClick={submit} disabled={loading} className="px-3 py-2 rounded-xl border">
           {loading ? "Génération..." : "Générer"}
         </button>
-        <button
-          onClick={() => setShowRaw((s) => !s)}
-          className="px-3 py-2 rounded-xl border ml-auto text-xs"
-          disabled={result === null}
-          title="Afficher/masquer la réponse brute"
-        >
-          {showRaw ? "Masquer JSON" : "Voir JSON"}
-        </button>
       </div>
 
       {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
 
-      {/* rendu « joli » */}
+      {/* Un seul bloc par rangée (vertical) */}
       {grouped.size > 0 && (
-        <div className="grid gap-3">
+        <div className="space-y-4">
           {[...grouped.entries()].map(([blocId, items]) => {
-            const star = items.find((i) => i.etoile);
             const bases = items.filter((i) => !i.etoile);
+            const star = items.find((i) => i.etoile);
+            const baseNums = new Set(bases.flatMap((b) => b.combinaison));
+            const starReuse = star ? star.combinaison.filter((n) => baseNums.has(n)) : [];
+            const starNew = star ? star.combinaison.filter((n) => !baseNums.has(n)) : [];
             return (
               <div key={blocId} className="rounded-xl border p-3">
                 <div className="mb-2 font-semibold">Bloc {blocId}</div>
-                <div className="grid sm:grid-cols-2 gap-2">
+                <div className="grid gap-2">
                   {bases.map((it, idx) => (
                     <div key={idx} className="flex flex-wrap gap-1">
                       {it.combinaison.map((n) => (
@@ -115,12 +112,18 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
                       ))}
                     </div>
                   ))}
+
                   {star && (
-                    <div className="flex flex-wrap gap-1 sm:col-span-2">
-                      <span className="inline-block mr-2 text-xs font-medium text-yellow-700">★ Étoile</span>
-                      {star.combinaison.map((n) => (
-                        <Chip key={`s-${n}`} n={n} star />
-                      ))}
+                    <div className="mt-1">
+                      <div className="text-xs font-medium mb-1">★ Étoile</div>
+                      <div className="flex flex-wrap gap-1">
+                        {starReuse.map((n) => (
+                          <Chip key={`r-${n}`} n={n} variant="star-reuse" />
+                        ))}
+                        {starNew.map((n) => (
+                          <Chip key={`n-${n}`} n={n} variant="star-new" />
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -128,11 +131,6 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
             );
           })}
         </div>
-      )}
-
-      {/* JSON brut optionnel */}
-      {showRaw && result !== null && (
-        <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">{raw}</pre>
       )}
     </div>
   );
