@@ -51,9 +51,7 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
           {loading ? "Vérification..." : "Vérifier"}
         </button>
       </div>
-
       {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
-
       {result !== null && (
         <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">
           {rendered}
