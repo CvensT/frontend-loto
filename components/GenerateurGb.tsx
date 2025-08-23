@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export default function GenerateurGb({ loterieId }: { loterieId: string }) {
   const [blocs, setBlocs] = useState(1);
-  const [result, setResult] = useState<unknown>(null);
+  const [result, setResult] = useState<string | object | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +21,7 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
       });
       const text = await r.text();
       try {
-        setResult(JSON.parse(text));
+        setResult(JSON.parse(text) as object);
       } catch {
         setResult(text);
       }
@@ -50,7 +50,7 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
         </button>
       </div>
       {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
-      {result && (
+      {result !== null && (
         <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">
           {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
         </pre>
