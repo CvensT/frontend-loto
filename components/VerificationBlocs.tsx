@@ -70,18 +70,15 @@ function parseBlockText(text: string, numsPerComb: number) {
   }
   return block;
 }
-
 export default function VerificationBlocs({ loterieId }: { loterieId: string }) {
   const cfg = CFG[(loterieId as keyof typeof CFG) ?? "2"];
 
-  // 🔧 casse l’union littérale (7|8|9) et élargit en number
+  // élargir en number pour éviter l’union 7|8|9
   const baseCount = Number(cfg.baseCount);
-  const expectedTotal = baseCount + 1;
+  const numsPerComb = Number(cfg.numsPerComb);
 
-  // 🔧 type explicite number, plus d’erreur SetStateAction<7|8|9>
   const [etoileIndex, setEtoileIndex] = useState<number>(baseCount);
 
-  // 🔧 ajoute les bonnes deps; calcule total dans le hook (option propre)
   const placeholder = useMemo(() => {
     const total = baseCount + 1; // ex-expectedTotal
     const sample: number[][] =
@@ -97,10 +94,15 @@ export default function VerificationBlocs({ loterieId }: { loterieId: string }) 
             [11,12,25,28,29,32,39] // étoile
           ]
         : Array.from({ length: total }, () =>
-            Array.from({ length: cfg.numsPerComb }, (_, i) => i + 1)
+            Array.from({ length: numsPerComb }, (_, i) => i + 1)
           );
     return sample.map((row) => row.join(" ")).join("\n");
-  }, [loterieId, cfg.numsPerComb, baseCount]);
+  }, [loterieId, baseCount, numsPerComb]);
+
+  const expectedTotal = baseCount + 1; // si tu l'utilises ailleurs
+  // ...
+}
+
 
   // 🔧 handler input sans union littérale
   // ...
