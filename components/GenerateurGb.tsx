@@ -54,7 +54,6 @@ export default function GenerateurGb({ loterieId }: { loterieId: string }) {
 
       {err && <pre className="text-red-600 text-sm whitespace-pre-wrap">{err}</pre>}
 
-      {/* ⬇️ IMPORTANT: on garde la garde "!== null" (plus de {result && ...}) */}
       {result !== null && (
         <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-3 rounded">
           {rendered}
