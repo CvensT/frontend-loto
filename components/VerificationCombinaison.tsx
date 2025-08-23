@@ -2,21 +2,15 @@
 
 import { useMemo, useState } from "react";
 
-type ApiSuccess = {
-  ok: true;
-  data: { existe: boolean; criteres?: Record<string, unknown> };
-};
-type ApiError = { ok: false; error: string; [k: string]: unknown };
-type ApiResponse = ApiSuccess | ApiError;
+type ApiSuccess = { ok: true; data: { existe: boolean } };
+type ApiError   = { ok: false; error: string };
+type ApiResp    = ApiSuccess | ApiError;
 
 const CFG = {
-  "1": { name: "Grande Vie", numsPerComb: 5, min: 1, max: 49, somme: [80, 179] as [number, number] },
-  "2": { name: "Lotto Max",  numsPerComb: 7, min: 1, max: 50, somme: [140, 219] as [number, number] },
-  "3": { name: "Lotto 6/49", numsPerComb: 6, min: 1, max: 49, somme: [100, 199] as [number, number] },
+  "1": { name: "Grande Vie", numsPerComb: 5, min: 1, max: 49 },
+  "2": { name: "Lotto Max",  numsPerComb: 7, min: 1, max: 50 },
+  "3": { name: "Lotto 6/49", numsPerComb: 6, min: 1, max: 49 },
 } as const;
-
-const TICK = "✔";
-const CROSS = "✗";
 
 function fmtComb(nums: number[]) {
   return nums.map((n) => n.toString().padStart(2, "0")).join(" ");
@@ -24,38 +18,13 @@ function fmtComb(nums: number[]) {
 function padRight(s: string, w: number) {
   return s + " ".repeat(Math.max(0, w - s.length));
 }
-function buildAsciiTable(rows: Array<{
-  comb: number[];
-  checks: Record<string, boolean>;
-  sommeRange: [number, number];
-}>) {
-  const headers = [
-    "No",
-    "Combinaison",
-    "Pair/Impair",
-    "Petit/Grand",
-    "Séries",
-    "Dizaines",
-    "Fin id.",
-    "Diversité",
-    "Symboliques",
-    `Somme : ${rows[0]?.sommeRange[0] ?? "?"} - ${rows[0]?.sommeRange[1] ?? "?"}`,
-  ];
-  const data = rows.map((r, i) => [
-    `${String(i + 1).padStart(2, "0")}.`,
-    fmtComb(r.comb),
-    r.checks["Pair/Impair"] ? TICK : CROSS,
-    r.checks["Petit/Grand"] ? TICK : CROSS,
-    r.checks["Séries"] ? TICK : CROSS,
-    r.checks["Dizaines"] ? TICK : CROSS,
-    r.checks["Fin identique"] ? TICK : CROSS,
-    r.checks["Diversité finales"] ? TICK : CROSS,
-    r.checks["Symboliques"] ? TICK : CROSS,
-    `${r.checks["Somme"] ? TICK : CROSS} (${String(r.comb.reduce((a, b) => a + b, 0))})`,
-  ]);
+function buildTable(rows: Array<{ no: string; comb: string; statut: string }>) {
+  const headers = ["No", "Combinaison", "Statut"];
+  const data = rows.map((r) => [r.no, r.comb, r.statut]);
   const widths = headers.map((h, c) => Math.max(h.length, ...data.map((row) => row[c].length)));
   const sep = "-".repeat(widths.reduce((acc, w, i) => acc + w + (i ? 3 : 0), 0));
   const line = (cols: string[]) => cols.map((s, i) => padRight(s, widths[i])).join(" | ");
+
   let out = "";
   out += line(headers) + "\n";
   out += sep + "\n";
@@ -87,10 +56,7 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
   const [loading, setLoading] = useState(false);
 
   const aide = useMemo(
-    () =>
-      `Collez 1 à 10 lignes — ${cfg.numsPerComb} nombres distincts entre ${cfg.min} et ${cfg.max} (ex: ${
-        cfg.name === "Lotto Max" ? "1 8 14 20 27 38 45" : cfg.name === "Grande Vie" ? "1 9 17 25 33" : "2 8 16 31 38 41"
-      }).`,
+    () => `Collez 1 à 10 lignes — ${cfg.numsPerComb} nombres distincts entre ${cfg.min} et ${cfg.max}.`,
     [cfg]
   );
 
@@ -101,7 +67,9 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
     try {
       const combos = parseLines(text, cfg.numsPerComb, cfg.min, cfg.max);
 
-      const rows: Array<{ comb: number[]; checks: Record<string, boolean>; sommeRange: [number, number] }> = [];
+      const rows: Array<{ no: string; comb: string; statut: string }> = [];
+      let idx = 1;
+
       for (const comb of combos) {
         const r = await fetch("/api/verifier", {
           method: "POST",
@@ -110,27 +78,28 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
           cache: "no-store",
         });
         const t = await r.text();
-        const parsed: ApiResponse = (() => {
-          try {
-            return JSON.parse(t) as ApiResponse;
-          } catch {
-            return { ok: false, error: t || "Réponse invalide" };
-          }
-        })();
+        let existe: boolean | null = null;
 
-        if (!parsed.ok || !parsed.data.criteres || typeof parsed.data.criteres !== "object") {
-          throw new Error(!parsed.ok ? parsed.error : "Réponse sans critères");
+        try {
+          const parsed: ApiResp = JSON.parse(t);
+          if (parsed.ok) existe = !!parsed.data.existe;
+          else throw new Error(parsed.error);
+        } catch {
+          // fallback: si le backend renvoie juste "true"/"false"
+          if (t.trim().toLowerCase() === "true") existe = true;
+          else if (t.trim().toLowerCase() === "false") existe = false;
+          else throw new Error(t || "Réponse invalide du backend");
         }
 
         rows.push({
-          comb,
-          checks: parsed.data.criteres as Record<string, boolean>,
-          sommeRange: cfg.somme,
+          no: `${String(idx++).padStart(2, "0")}.`,
+          comb: fmtComb(comb),
+          statut: existe ? "déjà tirée" : "nouvelle combinaison",
         });
       }
 
-      const table = "Bloc 1 :\n" + buildAsciiTable(rows);
-      setAscii(table);
+      const table = buildTable(rows);
+      setAscii("Bloc 1 :\n" + table);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -148,7 +117,7 @@ export default function VerificationCombinaison({ loterieId }: { loterieId: stri
         onChange={(e) => setText(e.target.value)}
         rows={Math.max(3, Math.min(10, text.split(/\n/).length || 3))}
         className="w-full border rounded p-2 font-mono text-sm"
-        placeholder={"1 2 3 ... (une ligne = une combinaison)"}
+        placeholder={"ex. 1 8 14 20 27 38 45"}
       />
 
       <button onClick={submit} disabled={loading} className="px-3 py-2 rounded-xl border">
