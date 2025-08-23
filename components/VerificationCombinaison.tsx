@@ -65,13 +65,14 @@ export default function VerificationCombinaison() {
 
       const json: ApiResponse = await r.json();
       setResult(json);
-    } catch (e) {
+     } catch (e) {
       if (e instanceof Error) {
         setErr(e.message);
       } else {
         setErr(String(e));
       }
     } finally {
+
       setLoading(false);
     }
   };
