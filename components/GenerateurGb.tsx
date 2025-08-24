@@ -236,12 +236,9 @@ export default function GenerateurGb({ loterieId }: Props) {
   </div>
 )}
 
-
-
       {resultat !== null && "ok" in resultat && resultat.ok === false && (
         <pre className="text-red-600 text-[12px] whitespace-pre-wrap w-fit">{resultat.error}</pre>
       )}
     </div>
   );
 }
-
