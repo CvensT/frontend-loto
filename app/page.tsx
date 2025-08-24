@@ -6,29 +6,42 @@ import GenerateurGb from "../components/GenerateurGb";
 import VerificationCombinaison from "../components/VerificationCombinaison";
 import VerificationBlocs from "../components/VerificationBlocs";
 
-type Action = "Gb" | "V" | "Vb";
+type Action = "" | "Gb" | "V" | "Vb";
+type LoterieId = "1" | "2" | "3";
 
-export default function Page() {
-  // source de vérité
-  const [action, setAction] = useState<Action>("Vb");
-  const [loterieId, setLoterieId] = useState<"1" | "2" | "3">("2");
+export default function Home() {
+  // Loterie contrôlée au niveau page
+  const [loterieId, setLoterieId] = useState<LoterieId>("2"); // défaut: Lotto Max
+  const [action, setAction] = useState<Action>("");           // "" = accueil
+
+  const goAccueil = () => setAction("");
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-6 space-y-6">
-      <h1 className="text-3xl font-bold">🎲 AI Générateur de Combinaisons</h1>
+    <div className="p-4 flex flex-col items-center">
+      <h1 className="text-2xl font-bold mb-4">🎲 IA Générateur de Combinaisons  🎲</h1>
 
-      {/* ✅ Le menu contrôle TOUT (loterie + action). Aucun autre select au-dessus. */}
+      {/* MENU TOUJOURS EN HAUT */}
       <MenuPrincipal
         loterieId={loterieId}
-        onChangeLoterie={setLoterieId}
-        action={action}
-        onChangeAction={setAction}
+        onChangeLoterie={(id) => { setLoterieId(id); setAction(""); }} // retour accueil si on change
+        onAction={(a) => setAction(a)}
       />
 
-      {/* Rendu conditionnel */}
+      {/* CONTENU DYNAMIQUE */}
       {action === "Gb" && <GenerateurGb loterieId={loterieId} />}
-      {action === "V"  && <VerificationCombinaison loterieId={loterieId} />}
       {action === "Vb" && <VerificationBlocs loterieId={loterieId} />}
-    </main>
+      {action === "V"  && <VerificationCombinaison loterieId={loterieId} />}
+
+      {/* Bouton Accueil dans chaque écran (affiché seulement si on n'est pas à l'accueil) */}
+      {action && (
+        <button
+          onClick={goAccueil}
+          className="mt-4 border rounded px-3 py-1 text-xs"
+        >
+          ⬅️ Accueil (changer d’option ou de loterie)
+        </button>
+      )}
+    </div>
   );
 }
+
