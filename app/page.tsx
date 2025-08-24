@@ -7,41 +7,52 @@ import VerificationCombinaison from "../components/VerificationCombinaison";
 import VerificationBlocs from "../components/VerificationBlocs";
 
 type Action = "" | "Gb" | "V" | "Vb";
-type LoterieId = "1" | "2" | "3";
+type LId = "1" | "2" | "3";
 
-export default function Home() {
-  // Loterie contrôlée au niveau page
-  const [loterieId, setLoterieId] = useState<LoterieId>("2"); // défaut: Lotto Max
-  const [action, setAction] = useState<Action>("");           // "" = accueil
+export default function Page() {
+  // Accueil par défaut (action vide) + loterie contrôlée ici
+  const [action, setAction] = useState<Action>("");
+  const [loterieId, setLoterieId] = useState<LId>("2");
 
-  const goAccueil = () => setAction("");
+  const renderContent = () => {
+    switch (action) {
+      case "Gb":
+        return <GenerateurGb loterieId={loterieId} />;
+      case "V":
+        return <VerificationCombinaison loterieId={loterieId} />;
+      case "Vb":
+        return <VerificationBlocs loterieId={loterieId} />;
+      default:
+        return null; // accueil: seulement le menu
+    }
+  };
 
   return (
-    <div className="p-4 flex flex-col items-center">
-      <h1 className="text-2xl font-bold mb-4">🎲 IA Générateur de Combinaisons  🎲</h1>
+    <main className="min-h-screen flex flex-col items-center p-6 space-y-6">
+      <h1 className="text-3xl font-bold">🎲 AI Générateur de Combinaisons</h1>
 
-      {/* MENU TOUJOURS EN HAUT */}
+      {/* Le menu contrôle TOUT (loterie + action). */}
       <MenuPrincipal
         loterieId={loterieId}
-        onChangeLoterie={(id) => { setLoterieId(id); setAction(""); }} // retour accueil si on change
-        onAction={(a) => setAction(a)}
+        onChangeLoterie={(id) => {
+          setLoterieId(id);
+          setAction(""); // changer de loterie => retour accueil
+        }}
+        action={action as Exclude<Action, ""> as "Gb" | "V" | "Vb"}
+        onChangeAction={(a) => setAction(a)}
       />
 
-      {/* CONTENU DYNAMIQUE */}
-      {action === "Gb" && <GenerateurGb loterieId={loterieId} />}
-      {action === "Vb" && <VerificationBlocs loterieId={loterieId} />}
-      {action === "V"  && <VerificationCombinaison loterieId={loterieId} />}
+      {renderContent()}
 
-      {/* Bouton Accueil dans chaque écran (affiché seulement si on n'est pas à l'accueil) */}
-      {action && (
+      {action !== "" ? (
         <button
-          onClick={goAccueil}
-          className="mt-4 border rounded px-3 py-1 text-xs"
+          type="button"
+          className="border rounded px-3 py-1 text-xs"
+          onClick={() => setAction("")}
         >
-          ⬅️ Accueil (changer d’option ou de loterie)
+          ⬅️ Accueil
         </button>
-      )}
-    </div>
+      ) : null}
+    </main>
   );
 }
-

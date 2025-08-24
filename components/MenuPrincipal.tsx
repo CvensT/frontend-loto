@@ -1,24 +1,34 @@
-type LoterieId = "1" | "2" | "3";
-type Action = "Gb" | "V" | "Vb";
+"use client";
+
+type LId = "1" | "2" | "3";
+type Act = "Gb" | "V" | "Vb";
 
 type Props = {
-  loterieId: LoterieId;
-  onChangeLoterie: (id: LoterieId) => void;
-  onAction: (a: Action) => void;
+  loterieId: LId;
+  onChangeLoterie: (id: LId) => void;
+  action: Act | "";
+  onChangeAction: (action: Act) => void;
 };
 
-export default function MenuPrincipal({ loterieId, onChangeLoterie, onAction }: Props) {
+export default function MenuPrincipal({
+  loterieId,
+  onChangeLoterie,
+  action,
+  onChangeAction,
+}: Props) {
   return (
-    <div className="border rounded-lg p-4 space-y-3 text-sm max-w-md w-full text-center mb-4">
-      <div className="font-semibold text-base">🎯 Menu principal</div>
+    <div className="border rounded-lg p-3 space-y-3 text-xs w-full max-w-sm text-center">
+      <div className="font-semibold">🎯 Menu principal</div>
 
-      {/* Sélecteur loterie contrôlé */}
       <div className="flex items-center justify-center gap-2">
-        <label className="text-xs">Loterie</label>
+        <label htmlFor="loterie" className="whitespace-nowrap">
+          Loterie
+        </label>
         <select
-          className="border rounded px-2 py-1 text-sm"
+          id="loterie"
           value={loterieId}
-          onChange={(e) => onChangeLoterie(e.target.value as LoterieId)}
+          onChange={(e) => onChangeLoterie(e.target.value as LId)}
+          className="border rounded px-2 py-1 text-xs"
         >
           <option value="1">Grande Vie</option>
           <option value="2">Lotto Max</option>
@@ -26,32 +36,42 @@ export default function MenuPrincipal({ loterieId, onChangeLoterie, onAction }: 
         </select>
       </div>
 
-      {/* Actions compactes : utilisent toujours la loterie courante */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1.5">
         <button
-          className="border rounded px-2 py-1 text-xs"
-          onClick={() => onAction("Gb")}
+          type="button"
+          aria-pressed={action === "Gb"}
+          onClick={() => onChangeAction("Gb")}
+          className={`px-2 py-1 rounded border text-xs ${
+            action === "Gb" ? "bg-gray-100" : ""
+          }`}
         >
           (Gb) Génération par blocs
         </button>
         <button
-          className="border rounded px-2 py-1 text-xs"
-          onClick={() => onAction("Vb")}
-        >
-          (Vb) Vérifier conformité de blocs
-        </button>
-        <button
-          className="border rounded px-2 py-1 text-xs"
-          onClick={() => onAction("V")}
+          type="button"
+          aria-pressed={action === "V"}
+          onClick={() => onChangeAction("V")}
+          className={`px-2 py-1 rounded border text-xs ${
+            action === "V" ? "bg-gray-100" : ""
+          }`}
         >
           (V) Vérifier si combinaisons déjà tirées
         </button>
+        <button
+          type="button"
+          aria-pressed={action === "Vb"}
+          onClick={() => onChangeAction("Vb")}
+          className={`px-2 py-1 rounded border text-xs ${
+            action === "Vb" ? "bg-gray-100" : ""
+          }`}
+        >
+          (Vb) Vérifier bloc
+        </button>
       </div>
 
-      {/* Indication courte */}
       <div className="text-[11px] text-gray-600">
-        Choisis d’abord la loterie. Les options (Gb, Vb, V) utilisent automatiquement cette loterie.
-        Changer de loterie te ramène à l’accueil.
+        Option sélectionnée :{" "}
+        <strong>{action === "" ? "Accueil" : action}</strong>
       </div>
     </div>
   );
