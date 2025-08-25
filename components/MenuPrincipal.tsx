@@ -16,19 +16,37 @@ export default function MenuPrincipal({
   action,
   onChangeAction,
 }: Props) {
-  return (
-    <div className="border rounded-lg p-2 space-y-2 text-xs w-fit text-left">
-      <div className="font-semibold">🎯 Menu principal</div>
+  const Btn = ({
+    act,
+    label,
+  }: {
+    act: Act;
+    label: string;
+  }) => (
+    <button
+      type="button"
+      aria-pressed={action === act}
+      onClick={() => onChangeAction(act)}
+      className={`px-3 py-2 rounded-xl border text-sm w-full sm:w-auto text-left
+        ${action === act ? "bg-gray-100" : "bg-white"} hover:shadow-sm`}
+    >
+      {label}
+    </button>
+  );
 
-      <div className="flex items-center gap-2">
-        <label htmlFor="loterie" className="whitespace-nowrap">
+  return (
+    <section className="rounded-2xl border bg-white/70 p-4 sm:p-5 shadow-sm">
+      <div className="text-base font-semibold mb-3">🎯 Menu principal</div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <label htmlFor="loterie" className="text-sm">
           Loterie
         </label>
         <select
           id="loterie"
           value={loterieId}
           onChange={(e) => onChangeLoterie(e.target.value as LId)}
-          className="border rounded px-2 py-1 text-xs"
+          className="border rounded-lg px-2 py-1.5 text-sm bg-white"
         >
           <option value="1">Grande Vie</option>
           <option value="2">Lotto Max</option>
@@ -36,42 +54,16 @@ export default function MenuPrincipal({
         </select>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <button
-          type="button"
-          aria-pressed={action === "Gb"}
-          onClick={() => onChangeAction("Gb")}
-          className={`px-2 py-1 rounded border text-xs w-fit ${
-            action === "Gb" ? "bg-gray-100" : ""
-          }`}
-        >
-          (Gb) Génération par blocs
-        </button>
-        <button
-          type="button"
-          aria-pressed={action === "V"}
-          onClick={() => onChangeAction("V")}
-          className={`px-2 py-1 rounded border text-xs w-fit ${
-            action === "V" ? "bg-gray-100" : ""
-          }`}
-        >
-          (V) Vérifier si combinaisons déjà tirées
-        </button>
-        <button
-          type="button"
-          aria-pressed={action === "Vb"}
-          onClick={() => onChangeAction("Vb")}
-          className={`px-2 py-1 rounded border text-xs w-fit ${
-            action === "Vb" ? "bg-gray-100" : ""
-          }`}
-        >
-          (Vb) Vérifier bloc
-        </button>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Btn act="Gb" label="(Gb) Génération par blocs (+ étoile)" />
+        <Btn act="V"  label="(V) Vérifier si combinaison existe" />
+        <Btn act="Vb" label="(Vb) Vérifier couverture de blocs" />
       </div>
 
-      <div className="text-[11px] text-gray-600">
-        Option sélectionnée : <strong>{action === "" ? "Accueil" : action}</strong>
+      <div className="mt-3 text-xs text-gray-600">
+        Option sélectionnée :{" "}
+        <strong>{action === "" ? "Accueil" : action}</strong>
       </div>
-    </div>
+    </section>
   );
 }

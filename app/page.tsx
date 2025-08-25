@@ -10,46 +10,42 @@ type Action = "" | "Gb" | "V" | "Vb";
 type LId = "1" | "2" | "3";
 
 export default function Page() {
-  // Accueil par défaut (action vide) + loterie contrôlée ici
   const [action, setAction] = useState<Action>("");
   const [loterieId, setLoterieId] = useState<LId>("2");
 
-  const renderContent = () => {
-    switch (action) {
-      case "Gb":
-        return <GenerateurGb loterieId={loterieId} />;
-      case "V":
-        return <VerificationCombinaison loterieId={loterieId} />;
-      case "Vb":
-        return <VerificationBlocs loterieId={loterieId} />;
-      default:
-        return null; // accueil: seulement le menu
-    }
-  };
+  const render = () =>
+    action === "Gb" ? (
+      <GenerateurGb loterieId={loterieId} />
+    ) : action === "V" ? (
+      <VerificationCombinaison loterieId={loterieId} />
+    ) : action === "Vb" ? (
+      <VerificationBlocs loterieId={loterieId} />
+    ) : null;
 
   return (
-    <main className="min-h-screen py-4">
-      <div className="mx-auto w-fit px-3 space-y-4">
-        <h1 className="text-xl font-semibold">🎲 AI Générateur de Combinaisons</h1>
+    <main className="min-h-screen py-8">
+      <div className="mx-auto max-w-3xl px-4 space-y-6">
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+          🎲 AI Générateur de Combinaisons
+        </h1>
 
-        {/* Le menu contrôle TOUT (loterie + action). */}
         <MenuPrincipal
           loterieId={loterieId}
           onChangeLoterie={(id) => {
             setLoterieId(id);
-            setAction(""); // changer de loterie => retour accueil
+            setAction("");
           }}
           action={action as Exclude<Action, ""> as "Gb" | "V" | "Vb"}
-          onChangeAction={(a) => setAction(a)}
+          onChangeAction={setAction as (a: "Gb" | "V" | "Vb") => void}
         />
 
-        <div className="w-fit">{renderContent()}</div>
+        {render()}
 
         {action !== "" && (
-          <div className="pt-2">
+          <div>
             <button
               type="button"
-              className="border rounded px-3 py-1 text-xs"
+              className="border rounded-xl px-3 py-1.5 text-xs hover:shadow-sm"
               onClick={() => setAction("")}
             >
               ⬅️ Accueil
@@ -60,4 +56,3 @@ export default function Page() {
     </main>
   );
 }
-

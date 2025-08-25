@@ -4,22 +4,11 @@ import { useMemo, useState } from "react";
 
 type Props = { loterieId: "1" | "2" | "3" };
 
-type Combinaison = {
-  bloc: number;
-  combinaison: number[];
-  etoile: boolean;
-};
-
-type ApiSuccess = {
-  ok: true;
-  data: Combinaison[];
-  echo?: { loterie: string; blocs: number };
-  source?: string;
-};
-type ApiError = { ok: false; error: string; [k: string]: unknown };
+type Combinaison = { bloc: number; combinaison: number[]; etoile: boolean };
+type ApiSuccess = { ok: true; data: Combinaison[]; echo?: { loterie: string; blocs: number } };
+type ApiError   = { ok: false; error: string };
 type ApiResponse = ApiSuccess | ApiError;
 
-/* ---------- Config loteries ---------- */
 const CFG = {
   "1": { name: "Grande Vie", baseCount: 9 },
   "2": { name: "Lotto Max",  baseCount: 7 },
@@ -27,53 +16,49 @@ const CFG = {
 } as const;
 
 const LOT_NAMES: Record<Props["loterieId"], string> = {
-  "1": CFG["1"].name,
-  "2": CFG["2"].name,
-  "3": CFG["3"].name,
+  "1": CFG["1"].name, "2": CFG["2"].name, "3": CFG["3"].name,
 };
 
 const fmtComb = (nums: number[]) => nums.map(n => String(n).padStart(2, "0")).join(" ");
 const fmtList = (nums: number[]) => nums.map(n => String(n).padStart(2, "0")).join(", ");
 
-/* ---------- Synthèse ---------- */
-function summarizeBlock(base: number[][], star?: number[]) {
+async function postGb(blocs: number, loterie: string): Promise<ApiResponse> {
+  const tries = [
+    { loterie, mode: "Gb", nb_blocs: blocs },
+    { loterie, mode: "Gb", n_blocs: blocs },
+    { loterie, mode: "Gb", blocs },
+  ];
+  let last: string = "Erreur inconnue";
+  for (const payload of tries) {
+    const r = await fetch("/api/generer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const txt = await r.text();
+    last = txt;
+    if (r.ok) {
+      try { return JSON.parse(txt) as ApiResponse; } catch { return { ok: false, error: "Réponse invalide" }; }
+    }
+    // si “bloc manquant”, on essaie la variante suivante
+    if (/bloc\s+manquant/i.test(txt)) continue;
+  }
+  try { return JSON.parse(last) as ApiResponse; } catch { return { ok: false, error: last }; }
+}
+
+/* groupement et synthèse */
+function summarize(base: number[][], star?: number[]) {
   const counts = new Map<number, number>();
   for (const c of base) for (const n of c) counts.set(n, (counts.get(n) || 0) + 1);
-  const doublons = [...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n).sort((a, b) => a - b);
-
-  const baseSet = new Set<number>(base.flat());
-  const reutilises = (star ?? []).filter(n => baseSet.has(n)).sort((a, b) => a - b);
-  const nouveaux  = (star ?? []).filter(n => !baseSet.has(n)).sort((a, b) => a - b);
-
+  const doublons = [...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n).sort((a,b)=>a-b);
+  const set = new Set(base.flat());
+  const reutilises = (star ?? []).filter(n => set.has(n)).sort((a,b)=>a-b);
+  const nouveaux  = (star ?? []).filter(n => !set.has(n)).sort((a,b)=>a-b);
   return { doublons, reutilises, nouveaux };
 }
 
-/* ---------- Groupement robuste ---------- */
-function groupCombinaisons(
-  data: Combinaison[],
-  requestedBlocs: number,
-  baseCount: number
-): { blocNo: number; base: number[][]; star?: number[] }[] {
-  if (!data?.length) return [];
-
-  // 1) Essai par numéro de bloc (si >= 2 distincts)
-  const byBloc = new Map<number, { base: number[][]; stars: number[][] }>();
-  for (const item of data) {
-    const key = Number.isFinite(item.bloc) && item.bloc > 0 ? item.bloc : 1;
-    const entry = byBloc.get(key) ?? { base: [], stars: [] };
-    (item.etoile ? entry.stars : entry.base).push(item.combinaison);
-    byBloc.set(key, entry);
-  }
-  const distinct = [...byBloc.keys()].sort((a, b) => a - b);
-  if (distinct.length >= 2) {
-    return distinct.map(k => ({
-      blocNo: k,
-      base: byBloc.get(k)!.base,
-      star: byBloc.get(k)!.stars[0],
-    }));
-  }
-
-  // 2) Découpe séquentielle
+function groupData(data: Combinaison[], baseCount: number) {
+  if (!data?.length) return [] as { blocNo: number; base: number[][]; star?: number[] }[];
   const out: { blocNo: number; base: number[][]; star?: number[] }[] = [];
   let i = 0, blocNo = 1;
   while (i < data.length) {
@@ -83,145 +68,101 @@ function groupCombinaisons(
       i++;
     }
     let star: number[] | undefined;
-    if (i < data.length && data[i].etoile) {
-      star = data[i].combinaison;
-      i++;
-    }
-    if (base.length > 0 || star) out.push({ blocNo: blocNo++, base, star }); else i++;
+    if (i < data.length && data[i].etoile) { star = data[i].combinaison; i++; }
+    out.push({ blocNo: blocNo++, base, star });
   }
   return out;
 }
 
-/* ======================== Composant ======================== */
 export default function GenerateurGb({ loterieId }: Props) {
-  const [resultat, setResultat] = useState<ApiResponse | null>(null);
-  const [loading, setLoading]   = useState(false);
-  const [err, setErr]           = useState<string | null>(null);
-  const [nbBlocs, setNbBlocs]   = useState(1);
+  const [nbBlocs, setNbBlocs] = useState(2);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [data, setData] = useState<Combinaison[] | null>(null);
 
   const loterieName = LOT_NAMES[loterieId];
   const baseCount   = CFG[loterieId].baseCount;
 
-  const generer = async () => {
+  async function generer() {
     setLoading(true);
     setErr(null);
-    setResultat(null);
-    try {
-      const blocs = Math.max(1, Math.min(30, nbBlocs));
-      const r = await fetch("/api/generer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          loterie: loterieId,
-          mode: "Gb",
-          blocs,
-          nBlocs: blocs,
-          n_blocs: blocs,
-        }),
-      });
-      const json: ApiResponse = await r.json();
-      setResultat(json);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
+    setData(null);
+    const res = await postGb(Math.max(1, Math.min(30, nbBlocs)), loterieId);
+    setLoading(false);
+    if (!res || !("ok" in res) || !res.ok) {
+      setErr((res as ApiError)?.error || "Erreur");
+      return;
     }
-  };
+    setData(res.data);
+  }
 
   const grouped = useMemo(() => {
-    if (!resultat || !("ok" in resultat) || !resultat.ok) return [];
-    const buckets = groupCombinaisons(resultat.data, nbBlocs, baseCount);
-    return buckets.map(({ blocNo, base, star }) => {
-      const { doublons, reutilises, nouveaux } = summarizeBlock(base, star);
+    if (!data) return [];
+    return groupData(data, baseCount).map(({ blocNo, base, star }) => {
+      const s = summarize(base, star);
       const lines = base.map(c => fmtComb(c)).join("\n") + (star ? `\n${fmtComb(star)} ★` : "");
-      return { blocNo, lines, doublons, reutilises, nouveaux };
+      return { blocNo, lines, ...s };
     });
-  }, [resultat, nbBlocs, baseCount]);
+  }, [data, baseCount]);
 
   return (
-    <div className="border rounded-lg p-2 sm:p-3 space-y-2 text-[13px] w-fit mx-auto">
-      <div className="flex items-center justify-between">
-        <div className="font-semibold text-[13px]">
+    <section className="rounded-2xl border bg-white/70 p-4 sm:p-5 shadow-sm">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h3 className="text-base sm:text-lg font-semibold">
           Gb — Génération par blocs couvrants (+ étoile) / {loterieName}
+        </h3>
+
+        <div className="flex items-center gap-2 text-sm">
+          <label>Nombre de blocs</label>
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={nbBlocs}
+            onChange={(e) => setNbBlocs(Math.max(1, Math.min(30, parseInt(e.target.value || "1", 10))))}
+            className="w-24 rounded-lg border px-2 py-1 text-center bg-white"
+          />
+          <button
+            onClick={generer}
+            disabled={loading}
+            className="rounded-xl border px-3 py-2 text-sm bg-white hover:shadow-sm disabled:opacity-60"
+          >
+            {loading ? "Génération…" : "Générer"}
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-[12px]">
-        <label className="whitespace-nowrap">Nombre de blocs</label>
-        <input
-          type="number"
-          min={1}
-          max={30}
-          value={nbBlocs}
-          onChange={(e) => setNbBlocs(Math.max(1, Math.min(30, parseInt(e.target.value || "1", 10))))}
-          className="w-20 rounded-lg border px-2 py-1 text-center"
-        />
-        <button onClick={generer} disabled={loading} className="rounded-lg px-2.5 py-1.5 border text-[12px] disabled:opacity-60">
-          {loading ? "Génération..." : "Générer"}
-        </button>
-        <button onClick={() => { setResultat(null); setErr(null); }} className="rounded-lg px-2.5 py-1.5 border text-[12px]">
-          Réinitialiser
-        </button>
-      </div>
+      {err && <div className="mt-3 text-red-600 text-sm">{err}</div>}
 
-      {err && <pre className="text-red-600 text-[12px] whitespace-pre-wrap w-fit">{err}</pre>}
-
-      {resultat !== null && "ok" in resultat && resultat.ok && resultat.echo && (
-        <div className="text-[12px] text-gray-600 w-fit">
-          {resultat.echo.loterie} — {resultat.echo.blocs} blocs générés ({resultat.data.length} combis)
-        </div>
-      )}
-
-      {resultat !== null && "ok" in resultat && resultat.ok && (
-        <div className="flex flex-col gap-3 max-h-[70vh] overflow-y-auto pr-1 w-fit">
-          {grouped.map((b, idx) => {
-            const resume =
-              (b.reutilises.length ? `Réutilisés: ${b.reutilises.length}` : "Réutilisés: 0") +
-              " · " +
-              (b.nouveaux.length ? `Nouveaux: ${b.nouveaux.length}` : "Nouveaux: 0") +
-              (b.doublons.length ? ` · Doublons: ${b.doublons.length}` : "");
-
-            return (
-              <details
-                key={b.blocNo}
-                className="group w-full border rounded-lg bg-white/70 shadow-sm"
-                {...(idx === 0 ? { open: true } : {})}
-              >
-                <summary className="flex items-center justify-between gap-2 cursor-pointer select-none px-3 py-2 text-[12px] font-semibold">
-                  <span>Bloc {b.blocNo}</span>
-                  <span className="text-gray-600 font-normal">{resume}</span>
-                </summary>
-
-                <div className="px-3 pb-3">
-                  <pre className="font-mono tabular-nums text-[11px] leading-[1.25] bg-gray-50 border rounded p-2 whitespace-pre inline-block">
-{b.lines}
-                  </pre>
-
-                  <div className="mt-2 space-y-1 text-[11px]">
-                    <div>
-                      {b.doublons.length === 0
-                        ? "👍 Aucun doublon détecté dans les combinaisons de base."
-                        : `⚠️ Doublons détectés dans les combinaisons de base : [${fmtList(b.doublons)}]`}
-                    </div>
-                    <div>
-                      🔷 Numéros réutilisés dans la combinaison étoile : [
-                      {b.reutilises.length ? fmtList(b.reutilises) : "aucun"}]
-                    </div>
-                    <div>
-                      ⚠️ Numéros nouveaux (restants) dans la combinaison étoile : [
-                      {b.nouveaux.length ? fmtList(b.nouveaux) : "aucun"}]
-                    </div>
+      {data && (
+        <div className="mt-4 flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-1">
+          {grouped.map((g, i) => (
+            <details key={g.blocNo} className="group border rounded-xl bg-white shadow-sm" {...(i===0?{open:true}:{})}>
+              <summary className="flex items-center justify-between gap-2 cursor-pointer select-none px-3 py-2 text-sm font-semibold">
+                <span>Bloc {g.blocNo}</span>
+                <span className="text-gray-600 font-normal">
+                  Réutilisés: {g.reutilises.length} · Nouveaux: {g.nouveaux.length}
+                  {g.doublons.length ? ` · Doublons: ${g.doublons.length}` : ""}
+                </span>
+              </summary>
+              <div className="px-3 pb-3">
+                <pre className="font-mono tabular-nums text-[12px] leading-[1.25] bg-gray-50 border rounded p-2 whitespace-pre inline-block">
+{g.lines}
+                </pre>
+                <div className="mt-2 space-y-1 text-xs">
+                  <div>
+                    {g.doublons.length === 0
+                      ? "👍 Aucun doublon détecté dans les combinaisons de base."
+                      : `⚠️ Doublons détectés : [${fmtList(g.doublons)}]`}
                   </div>
+                  <div>🔷 Réutilisés (étoile) : [{g.reutilises.length ? fmtList(g.reutilises) : "aucun"}]</div>
+                  <div>⚠️ Nouveaux (étoile) : [{g.nouveaux.length ? fmtList(g.nouveaux) : "aucun"}]</div>
                 </div>
-              </details>
-            );
-          })}
+              </div>
+            </details>
+          ))}
         </div>
       )}
-
-      {resultat !== null && "ok" in resultat && resultat.ok === false && (
-        <pre className="text-red-600 text-[12px] whitespace-pre-wrap w-fit">{resultat.error}</pre>
-      )}
-    </div>
+    </section>
   );
 }
