@@ -28,31 +28,36 @@ export default function Page() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-6 space-y-6">
-      <h1 className="text-3xl font-bold">🎲 AI Générateur de Combinaisons</h1>
+    <main className="min-h-screen py-4">
+      <div className="mx-auto w-fit px-3 space-y-4">
+        <h1 className="text-xl font-semibold">🎲 AI Générateur de Combinaisons</h1>
 
-      {/* Le menu contrôle TOUT (loterie + action). */}
-      <MenuPrincipal
-        loterieId={loterieId}
-        onChangeLoterie={(id) => {
-          setLoterieId(id);
-          setAction(""); // changer de loterie => retour accueil
-        }}
-        action={action as Exclude<Action, ""> as "Gb" | "V" | "Vb"}
-        onChangeAction={(a) => setAction(a)}
-      />
+        {/* Le menu contrôle TOUT (loterie + action). */}
+        <MenuPrincipal
+          loterieId={loterieId}
+          onChangeLoterie={(id) => {
+            setLoterieId(id);
+            setAction(""); // changer de loterie => retour accueil
+          }}
+          action={action as Exclude<Action, ""> as "Gb" | "V" | "Vb"}
+          onChangeAction={(a) => setAction(a)}
+        />
 
-      {renderContent()}
+        <div className="w-fit">{renderContent()}</div>
 
-      {action !== "" ? (
-        <button
-          type="button"
-          className="border rounded px-3 py-1 text-xs"
-          onClick={() => setAction("")}
-        >
-          ⬅️ Accueil
-        </button>
-      ) : null}
+        {action !== "" && (
+          <div className="pt-2">
+            <button
+              type="button"
+              className="border rounded px-3 py-1 text-xs"
+              onClick={() => setAction("")}
+            >
+              ⬅️ Accueil
+            </button>
+          </div>
+        )}
+      </div>
     </main>
   );
 }
+

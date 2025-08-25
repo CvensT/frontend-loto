@@ -27,17 +27,14 @@ const KEYS = [
 const TICK = "✔";
 const CROSS = "✗";
 
-/* ---------- helpers ---------- */
+/* helpers */
 const fmtComb = (nums: number[]) => nums.map((n) => n.toString().padStart(2, "0")).join(" ");
 const fmtList = (nums: number[]) => nums.map((n) => n.toString().padStart(2, "0")).join(", ");
 const padRight = (s: string, w: number) => s + " ".repeat(Math.max(0, w - s.length));
 
 function buildAsciiTable(rows: Array<{ comb: number[]; checks: Record<string, boolean>; sommeRange: [number, number]; }>) {
   const sommeLabel = `Somme : ${rows[0]?.sommeRange?.[0] ?? "?"} - ${rows[0]?.sommeRange?.[1] ?? "?"}`;
-
-  // ⬇️ colonne "Combinaison" uniquement (pas de No.), et on garde tous les critères + Somme
   const headers = ["Combinaison", ...KEYS.slice(0, -1), sommeLabel];
-
   const data = rows.map((r) => {
     const sum = r.comb.reduce((a, b) => a + b, 0);
     return [
@@ -46,11 +43,9 @@ function buildAsciiTable(rows: Array<{ comb: number[]; checks: Record<string, bo
       `${r.checks["Somme"] ? TICK : CROSS} (${sum})`,
     ];
   });
-
   const widths = headers.map((_, c) => Math.max(headers[c].length, ...(data.map(row => row[c].length))));
   const sep  = widths.map((w) => "-".repeat(w)).join(" | ");
   const line = (cols: string[]) => cols.map((s, i) => padRight(s, widths[i])).join(" | ");
-
   return [line(headers), sep, ...data.map(line)].join("\n");
 }
 
@@ -72,13 +67,12 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
   const numsPerComb = cfg.numsPerComb;
   const expectedTotal = baseCount + 1; // base + étoile (dernière ligne)
 
-  const [showEditor, setShowEditor] = useState(true); // propose la saisie au chargement/changement loterie
+  const [showEditor, setShowEditor] = useState(true);
   const [blocText, setBlocText] = useState("");
   const [ascii, setAscii] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // quand la loterie change, on repart propre
   useEffect(() => {
     setShowEditor(true);
     setAscii("");
@@ -100,9 +94,8 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
       const parsed = parseBlockText(blocText, numsPerComb);
       if (parsed.length !== expectedTotal) throw new Error(`Il faut ${expectedTotal} lignes (base ${baseCount} + 1 étoile).`);
 
-      const etoileIndex = parsed.length - 1; // étoile = dernière ligne
+      const etoileIndex = parsed.length - 1;
 
-      // --- API : critères ✔/✗
       const r = await fetch("/api/verifier-bloc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -113,7 +106,6 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
       try { data = JSON.parse(text); } catch { throw new Error("Réponse du serveur invalide."); }
       if (!data.ok) throw new Error(data.error || "Erreur serveur");
 
-      // --- rows pour le tableau
       const rows = data.data.details.map((obj, i) => {
         const comb = Array.isArray(obj["Combinaison"]) ? (obj["Combinaison"] as number[]) : parsed[i];
         const checks: Record<string, boolean> = {};
@@ -121,7 +113,6 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
         return { comb, checks, sommeRange: cfg.somme };
       });
 
-      // --- calcul synthèse (doublons / réutilisés / nouveaux) côté front
       const baseIdxs  = parsed.map((_, i) => i).filter((i) => i !== etoileIndex);
       const baseCombs = baseIdxs.map((i) => parsed[i]);
       const starComb  = parsed[etoileIndex];
@@ -134,7 +125,6 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
       const reutilises = starComb.filter((n) => baseSet.has(n)).sort((a, b) => a - b);
       const nouveaux  = starComb.filter((n) => !baseSet.has(n)).sort((a, b) => a - b);
 
-      // --- rendu ASCII compact
       const blocHead = `Bloc 1 :`;
       const table    = buildAsciiTable(rows);
       const line1    = doublons.length === 0
@@ -144,7 +134,7 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
       const line3    = `⚠️ Numéros nouveaux (restants) dans la combinaison étoile : [${fmtList(nouveaux)}]`;
 
       setAscii(`${blocHead}\n${table}\n\n${line1}\n\n${line2}\n\n${line3}`);
-      setShowEditor(false); // on masque après succès (comme V)
+      setShowEditor(false);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -153,8 +143,7 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
   };
 
   return (
-    <div className="rounded-lg border p-2 sm:p-3 space-y-2 text-[13px]">
-      {/* En-tête + toggle */}
+    <div className="rounded-lg border p-2 sm:p-3 space-y-2 text-[13px] w-fit">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-[13px]">
           Vb — Vérifier couverture de blocs / {cfg.name} : {baseCount} + 1*
@@ -168,7 +157,6 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
         </button>
       </div>
 
-      {/* Toolbar compacte : Vérifier + “Nb attendu” en pill */}
       <div className="flex items-center justify-between text-[12px]">
         <div className="flex items-center gap-2">
           <button
@@ -185,7 +173,6 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
         </div>
       </div>
 
-      {/* Éditeur (compact, visible à la demande) */}
       {showEditor && (
         <textarea
           value={blocText}
@@ -198,9 +185,8 @@ export default function VerificationBlocs({ loterieId }: { loterieId: "1" | "2" 
 
       {err && <div className="text-red-600 text-[12px]">{err}</div>}
 
-      {/* Tableau ASCII + synthèse — densifiés */}
       {ascii && (
-        <pre className="font-mono text-[11px] leading-[1.25] bg-gray-50 border rounded p-2 whitespace-pre overflow-x-auto">
+        <pre className="font-mono tabular-nums text-[11px] leading-[1.25] bg-gray-50 border rounded p-2 whitespace-pre inline-block">
 {ascii}
         </pre>
       )}

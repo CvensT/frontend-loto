@@ -17,10 +17,10 @@ export default function MenuPrincipal({
   onChangeAction,
 }: Props) {
   return (
-    <div className="border rounded-lg p-3 space-y-3 text-xs w-full max-w-sm text-center">
+    <div className="border rounded-lg p-2 space-y-2 text-xs w-fit text-left">
       <div className="font-semibold">🎯 Menu principal</div>
 
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex items-center gap-2">
         <label htmlFor="loterie" className="whitespace-nowrap">
           Loterie
         </label>
@@ -36,12 +36,12 @@ export default function MenuPrincipal({
         </select>
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1">
         <button
           type="button"
           aria-pressed={action === "Gb"}
           onClick={() => onChangeAction("Gb")}
-          className={`px-2 py-1 rounded border text-xs ${
+          className={`px-2 py-1 rounded border text-xs w-fit ${
             action === "Gb" ? "bg-gray-100" : ""
           }`}
         >
@@ -51,7 +51,7 @@ export default function MenuPrincipal({
           type="button"
           aria-pressed={action === "V"}
           onClick={() => onChangeAction("V")}
-          className={`px-2 py-1 rounded border text-xs ${
+          className={`px-2 py-1 rounded border text-xs w-fit ${
             action === "V" ? "bg-gray-100" : ""
           }`}
         >
@@ -61,7 +61,7 @@ export default function MenuPrincipal({
           type="button"
           aria-pressed={action === "Vb"}
           onClick={() => onChangeAction("Vb")}
-          className={`px-2 py-1 rounded border text-xs ${
+          className={`px-2 py-1 rounded border text-xs w-fit ${
             action === "Vb" ? "bg-gray-100" : ""
           }`}
         >
@@ -70,8 +70,7 @@ export default function MenuPrincipal({
       </div>
 
       <div className="text-[11px] text-gray-600">
-        Option sélectionnée :{" "}
-        <strong>{action === "" ? "Accueil" : action}</strong>
+        Option sélectionnée : <strong>{action === "" ? "Accueil" : action}</strong>
       </div>
     </div>
   );

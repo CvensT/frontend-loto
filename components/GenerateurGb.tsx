@@ -73,36 +73,22 @@ function groupCombinaisons(
     }));
   }
 
-  // 2) Découpe séquentielle — on forme un bloc dès qu'on a baseCount bases;
-  //    on prend la prochaine étoile si elle vient juste après, sinon bloc sans étoile.
+  // 2) Découpe séquentielle
   const out: { blocNo: number; base: number[][]; star?: number[] }[] = [];
   let i = 0, blocNo = 1;
   while (i < data.length) {
     const base: number[][] = [];
-    // collecter baseCount lignes de base (en sautant les étoiles)
     while (i < data.length && base.length < baseCount) {
       if (!data[i].etoile) base.push(data[i].combinaison);
       i++;
     }
-
-    // regarder si la prochaine ligne est une étoile (liée à ce bloc)
     let star: number[] | undefined;
     if (i < data.length && data[i].etoile) {
       star = data[i].combinaison;
       i++;
     }
-
-    if (base.length > 0 || star) {
-      out.push({ blocNo: blocNo++, base, star });
-    } else {
-      // anti-boucle si bruit
-      i++;
-    }
+    if (base.length > 0 || star) out.push({ blocNo: blocNo++, base, star }); else i++;
   }
-
-  // Si malgré tout on a 1 seul bloc mais l'utilisateur en demande plusieurs,
-  // on ne "casse" pas arbitrairement : on laisse 1 bloc (source ne fournit
-  // probablement pas assez de lignes pour plus d'un bloc).
   return out;
 }
 
@@ -128,7 +114,7 @@ export default function GenerateurGb({ loterieId }: Props) {
         body: JSON.stringify({
           loterie: loterieId,
           mode: "Gb",
-          blocs,          // formats tolérés par le backend
+          blocs,
           nBlocs: blocs,
           n_blocs: blocs,
         }),
@@ -153,7 +139,7 @@ export default function GenerateurGb({ loterieId }: Props) {
   }, [resultat, nbBlocs, baseCount]);
 
   return (
-    <div className="border rounded-lg p-2 sm:p-3 space-y-2 text-[13px] w-fit max-w-full mx-auto">
+    <div className="border rounded-lg p-2 sm:p-3 space-y-2 text-[13px] w-fit mx-auto">
       <div className="flex items-center justify-between">
         <div className="font-semibold text-[13px]">
           Gb — Génération par blocs couvrants (+ étoile) / {loterieName}
@@ -187,54 +173,51 @@ export default function GenerateurGb({ loterieId }: Props) {
       )}
 
       {resultat !== null && "ok" in resultat && resultat.ok && (
-  <div className="flex flex-col gap-3 max-h-[70vh] overflow-y-auto pr-2">
-    {grouped.map((b, idx) => {
-      // petit résumé pour le header
-      const resume =
-        (b.reutilises.length ? `Réutilisés: ${b.reutilises.length}` : "Réutilisés: 0") +
-        " · " +
-        (b.nouveaux.length ? `Nouveaux: ${b.nouveaux.length}` : "Nouveaux: 0") +
-        (b.doublons.length ? ` · Doublons: ${b.doublons.length}` : "");
+        <div className="flex flex-col gap-3 max-h-[70vh] overflow-y-auto pr-1 w-fit">
+          {grouped.map((b, idx) => {
+            const resume =
+              (b.reutilises.length ? `Réutilisés: ${b.reutilises.length}` : "Réutilisés: 0") +
+              " · " +
+              (b.nouveaux.length ? `Nouveaux: ${b.nouveaux.length}` : "Nouveaux: 0") +
+              (b.doublons.length ? ` · Doublons: ${b.doublons.length}` : "");
 
-      return (
-        <details
-          key={b.blocNo}
-          className="group w-full border rounded-lg bg-white/70 shadow-sm"
-          {...(idx === 0 ? { open: true } : {})} // ouvre le 1er bloc par défaut
-        >
-          <summary className="flex items-center justify-between gap-2 cursor-pointer select-none px-3 py-2 text-[12px] font-semibold">
-            <span>Bloc {b.blocNo}</span>
-            <span className="text-gray-600 font-normal">
-              {resume}
-            </span>
-          </summary>
+            return (
+              <details
+                key={b.blocNo}
+                className="group w-full border rounded-lg bg-white/70 shadow-sm"
+                {...(idx === 0 ? { open: true } : {})}
+              >
+                <summary className="flex items-center justify-between gap-2 cursor-pointer select-none px-3 py-2 text-[12px] font-semibold">
+                  <span>Bloc {b.blocNo}</span>
+                  <span className="text-gray-600 font-normal">{resume}</span>
+                </summary>
 
-          <div className="px-3 pb-3">
-            <pre className="font-mono text-[11px] leading-[1.25] bg-gray-50 border rounded p-2 whitespace-pre w-full overflow-x-auto">
+                <div className="px-3 pb-3">
+                  <pre className="font-mono tabular-nums text-[11px] leading-[1.25] bg-gray-50 border rounded p-2 whitespace-pre inline-block">
 {b.lines}
-            </pre>
+                  </pre>
 
-            <div className="mt-2 space-y-1 text-[11px]">
-              <div>
-                {b.doublons.length === 0
-                  ? "👍 Aucun doublon détecté dans les combinaisons de base."
-                  : `⚠️ Doublons détectés dans les combinaisons de base : [${fmtList(b.doublons)}]`}
-              </div>
-              <div>
-                🔷 Numéros réutilisés dans la combinaison étoile : [
-                {b.reutilises.length ? fmtList(b.reutilises) : "aucun"}]
-              </div>
-              <div>
-                ⚠️ Numéros nouveaux (restants) dans la combinaison étoile : [
-                {b.nouveaux.length ? fmtList(b.nouveaux) : "aucun"}]
-              </div>
-            </div>
-          </div>
-        </details>
-      );
-    })}
-  </div>
-)}
+                  <div className="mt-2 space-y-1 text-[11px]">
+                    <div>
+                      {b.doublons.length === 0
+                        ? "👍 Aucun doublon détecté dans les combinaisons de base."
+                        : `⚠️ Doublons détectés dans les combinaisons de base : [${fmtList(b.doublons)}]`}
+                    </div>
+                    <div>
+                      🔷 Numéros réutilisés dans la combinaison étoile : [
+                      {b.reutilises.length ? fmtList(b.reutilises) : "aucun"}]
+                    </div>
+                    <div>
+                      ⚠️ Numéros nouveaux (restants) dans la combinaison étoile : [
+                      {b.nouveaux.length ? fmtList(b.nouveaux) : "aucun"}]
+                    </div>
+                  </div>
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      )}
 
       {resultat !== null && "ok" in resultat && resultat.ok === false && (
         <pre className="text-red-600 text-[12px] whitespace-pre-wrap w-fit">{resultat.error}</pre>

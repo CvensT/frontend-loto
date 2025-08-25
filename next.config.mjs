@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    turbo: false, // désactive Turbopack côté code
-  },
+  // Si tu veux configurer Turbopack plus tard:
+  // turbopack: { /* rules, resolve, etc. */ },
 };
+
 export default nextConfig;

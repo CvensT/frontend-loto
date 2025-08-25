@@ -138,8 +138,7 @@ export default function VerifierCombinaisons({ loterieId }: { loterieId: LId }) 
   const fails  = rows.filter(r => r.error != null);
 
   return (
-    <div className="rounded-lg border p-2 sm:p-3 space-y-2 text-[13px]">
-      {/* Titre + toggle */}
+    <div className="rounded-lg border p-2 sm:p-3 space-y-2 text-[13px] w-fit">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-[13px]">
           V — Vérifier si combinaisons déjà tirées / {cfg.name}
@@ -153,7 +152,6 @@ export default function VerifierCombinaisons({ loterieId }: { loterieId: LId }) 
         </button>
       </div>
 
-      {/* Éditeur compact (seulement si visible) */}
       {showEditor && (
         <>
           <textarea
@@ -180,16 +178,13 @@ export default function VerifierCombinaisons({ loterieId }: { loterieId: LId }) 
 
       {err && <div className="text-red-600 text-[12px]">{err}</div>}
 
-      {/* Résultats ultra-compacts : titres dans les coins + barre verticale */}
       {rows.length > 0 && (
-        <div className="border rounded p-2 font-mono text-[12px] leading-tight">
-          {/* titres en coins */}
+        <div className="border rounded p-2 font-mono text-[12px] leading-tight w-fit">
           <div className="grid grid-cols-2 items-start">
             <div className="font-semibold">Déjà tirées : {deja.length}</div>
             <div className="font-semibold text-right">Jamais tirées : {jamais.length}</div>
           </div>
 
-          {/* deux colonnes rapprochées séparées par une fine barre */}
           <div className="mt-1 grid grid-cols-2 divide-x divide-gray-300">
             <div className="pr-2 space-y-0.5">
               {deja.length === 0 ? (
@@ -207,7 +202,6 @@ export default function VerifierCombinaisons({ loterieId }: { loterieId: LId }) 
             </div>
           </div>
 
-          {/* erreurs (si besoin), toujours compact */}
           {fails.length > 0 && (
             <div className="mt-2 text-[11px]">
               <div className="font-semibold mb-1">Erreurs : {fails.length}</div>
